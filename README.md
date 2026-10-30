@@ -15,7 +15,9 @@ Prevention and FBI Counter-IED Unit, edition "As of Aug 2025"):
   or on any marker from its radial menu
 - Draws the card's mandatory evacuation (red), shelter-in-place band
   (amber) and preferred evacuation line (green) as native ATAK circles
-  anchored to a BLAST marker, so every TAK client sees them
+  anchored to a hostile BLAST marker, so every TAK client sees them
+- Incident list at the top of the pane: Go to and Delete per incident,
+  Delete all cleared; deleting any part of an incident removes all of it
 - Shows your distance from the device, the zone you are in and what the
   card says to do, warns when GPS error could put you on the closer side
   of a boundary, and counts team contacts in each zone
@@ -24,16 +26,21 @@ Prevention and FBI Counter-IED Unit, edition "As of Aug 2025"):
 - Send to everyone, send to selected contacts, mark cleared (logged by
   callsign and Zulu time), delete locally or for everyone
 
-Feet are the card's own unit; metres are conversions, rounded outward.
+Feet are the card's own unit; metres are those published for the same
+table in ERG2024 p. 367 (High Explosives, TNT equivalent). Rings are drawn
+at the larger of the two.
 Blast is fully offline. It does not replace professional EOD, bomb squad
 or department procedures.
 
 _________________________________________________________________
 STATUS
 
-0.1 (Oct 2026): first test build, CISA/FBI card only. Planned: ERG2024
-reference presets (IED table, BLEVE, Guides 112/114) as labelled secondary
-layers.
+0.2 (Oct 2026): incident list with Go to / Delete, whole-incident delete,
+hostile marker, threat icons, ERG2024 metres, radial button fix.
+0.1 (Oct 2026): first test build, CISA/FBI card only.
+Planned: ERG2024 reference presets (LPG with explosives p. 368, BLEVE
+p. 359, explosives Guides 112/114) as labelled secondary layers; the data
+is already in core/ErgData with golden tests.
 
 _________________________________________________________________
 POINT OF CONTACTS
@@ -87,6 +94,8 @@ _________________________________________________________________
 ACKNOWLEDGMENTS
 
 - DHS/DOJ Bomb Threat Stand-Off Card, CISA Office for Bombing Prevention
-  and FBI Counter-IED Unit (public). Blast is not endorsed by CISA or the
-  FBI.
+  and FBI Counter-IED Unit (public).
+- 2024 Emergency Response Guidebook (PHMSA, Transport Canada, SCT,
+  CIQUIME), pp. 154-155, 158-159, 359, 367-368.
+- Blast is not endorsed by any of these agencies.
 - No third-party code or libraries are bundled in the plugin.

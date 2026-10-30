@@ -107,10 +107,19 @@ public final class BlastRecord {
                 Status.ACTIVE, "", -1, extra);
     }
 
-    /** The row as carried (works even for an edition this build lacks). */
+    /**
+     * The row as carried. When this build has the same edition and the
+     * carried feet match, the table's row is returned (with its published
+     * metres); otherwise a row built from the carried feet.
+     */
     public StandoffRow row() {
-        return new StandoffRow(rowId, rowLabel, capacityLb, mandatoryFt,
-                mandatoryFt + 1, shelterToFt, preferredFt);
+        StandoffTable t = table();
+        StandoffRow known = t == null ? null : t.row(rowId);
+        StandoffRow carried = new StandoffRow(rowId, rowLabel, capacityLb,
+                mandatoryFt, mandatoryFt + 1, shelterToFt, preferredFt);
+        if (known != null && known.sameFeet(carried))
+            return known;
+        return carried;
     }
 
     /** The matching table, or null if this build doesn't have that edition. */

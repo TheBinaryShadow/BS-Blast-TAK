@@ -30,11 +30,12 @@ public final class PositionCheck {
     public static final double DEFAULT_UNCERTAINTY_M = 15.0;
 
     public static Zone zoneOf(StandoffRow row, double distanceM) {
-        double ft = Formats.mToFt(Math.max(0, distanceM));
-        // Tolerance only absorbs floating-point noise from ft→m→ft.
-        if (ft <= row.mandatoryFt + 1e-6)
+        // Same radii as the drawn rings. Tolerance only absorbs
+        // floating-point noise from ft→m conversions.
+        double d = Math.max(0, distanceM);
+        if (d <= row.mandatoryRadiusM() + 1e-6)
             return Zone.MANDATORY;
-        if (ft >= row.preferredFt - 1e-6)
+        if (d >= row.preferredRadiusM() - 1e-6)
             return Zone.PREFERRED;
         return Zone.SHELTER;
     }
@@ -65,7 +66,8 @@ public final class PositionCheck {
 
         /** What the card says to do from here. */
         public String guidance() {
-            String pref = Formats.cardDistance(row.preferredFt);
+            String pref = Formats.ft(row.preferredFt) + " ("
+                    + Formats.thousands(row.preferredMetres()) + " m)";
             switch (zone) {
                 case MANDATORY:
                     return "Evacuate now. Everyone inside and outside "
@@ -104,7 +106,7 @@ public final class PositionCheck {
         double d = Math.max(0, distanceM);
         Zone z = zoneOf(row, d);
         Zone worst = zoneOf(row, Math.max(0, d - uncertaintyM));
-        double toPref = Math.max(0, Formats.ftToM(row.preferredFt) - d);
+        double toPref = Math.max(0, row.preferredRadiusM() - d);
         return new Result(row, z, d, toPref, worst.worseThan(z));
     }
 

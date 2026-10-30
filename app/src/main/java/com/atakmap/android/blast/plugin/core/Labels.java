@@ -26,13 +26,16 @@ public final class Labels {
 
     /** Title of the inner (mandatory) ring. */
     public static String mandatoryRing(BlastRecord r) {
-        return prefix(r) + "MANDATORY EVAC " + Formats.cardDistance(r.mandatoryFt);
+        StandoffRow row = r.row();
+        return prefix(r) + "MANDATORY EVAC " + Formats.ft(row.mandatoryFt)
+                + " (" + Formats.thousands(row.mandatoryMetres()) + " m)";
     }
 
     /** Title of the outer (preferred) ring. */
     public static String preferredRing(BlastRecord r) {
-        return prefix(r) + "PREFERRED EVAC " + Formats.ft(r.preferredFt) + "+ ("
-                + Formats.thousands(Formats.cardMetres(r.preferredFt))
+        StandoffRow row = r.row();
+        return prefix(r) + "PREFERRED EVAC " + Formats.ft(row.preferredFt)
+                + "+ (" + Formats.thousands(row.preferredMetres())
                 + " m) / SHELTER INSIDE";
     }
 
@@ -70,42 +73,56 @@ public final class Labels {
 
     /** Marker remarks for any TAK client. */
     public static String remarks(BlastRecord r) {
+        StandoffRow row = r.row();
         StringBuilder sb = new StringBuilder(REMARKS_PREFIX).append(' ');
         if (r.isCleared())
             sb.append("CLEARED. ");
         sb.append(threat(r)).append(": MANDATORY EVAC within ")
-                .append(Formats.cardDistance(r.mandatoryFt))
-                .append("; SHELTER-IN-PLACE ")
-                .append(Formats.thousands(r.mandatoryFt + 1)).append('-')
-                .append(Formats.ft(r.shelterToFt))
+                .append(Formats.ft(row.mandatoryFt)).append(" (")
+                .append(Formats.thousands(row.mandatoryMetres()))
+                .append(" m); SHELTER-IN-PLACE ")
+                .append(Formats.thousands(row.shelterFromFt)).append('-')
+                .append(Formats.ft(row.shelterToFt))
                 .append(" (inside, away from windows and exterior walls, only if you can't reach the preferred distance)")
                 .append("; PREFERRED EVAC ")
-                .append(Formats.ft(r.preferredFt)).append("+ (")
-                .append(Formats.thousands(Formats.cardMetres(r.preferredFt)))
+                .append(Formats.ft(row.preferredFt)).append("+ (")
+                .append(Formats.thousands(row.preferredMetres()))
                 .append(" m). Source: ").append(provenance(r))
-                .append(" Minimum distances, not guarantees; metres are converted from the card's feet.");
+                .append(" Minimum distances, not guarantees.");
         return sb.toString();
     }
 
-    /** Distance table rows for the zone card: {name, range}. */
+    /** Distance table rows for the zone card: {name, feet, metres}. */
     public static String[][] zoneRows(BlastRecord r) {
+        StandoffRow row = r.row();
         return new String[][] {
                 {
                         "Mandatory evacuation",
-                        "within " + Formats.cardDistance(r.mandatoryFt)
+                        "0–" + Formats.ft(row.mandatoryFt),
+                        "0–" + Formats.thousands(row.mandatoryMetres()) + " m"
                 },
                 {
                         "Shelter-in-place zone",
-                        Formats.thousands(r.mandatoryFt + 1) + "–"
-                                + Formats.ft(r.shelterToFt)
+                        Formats.thousands(row.shelterFromFt) + "–"
+                                + Formats.ft(row.shelterToFt),
+                        Formats.thousands(row.shelterFromMetres()) + "–"
+                                + Formats.thousands(row.shelterToMetres())
+                                + " m"
                 },
                 {
                         "Preferred evacuation",
-                        Formats.ft(r.preferredFt) + "+ ("
-                                + Formats.thousands(
-                                        Formats.cardMetres(r.preferredFt))
-                                + " m+)"
+                        Formats.ft(row.preferredFt) + "+",
+                        Formats.thousands(row.preferredMetres()) + "+ m"
                 }
         };
+    }
+
+    /** Where the metres on the card come from. */
+    public static String metresNote(BlastRecord r) {
+        return r.row().hasPublishedMetres()
+                ? "Metres as published in " + StandoffTable.METRIC_SOURCE
+                        + " (same table). Rings are drawn at the larger of the "
+                        + "feet and metre values."
+                : "Metres converted from the card's feet, rounded outward.";
     }
 }

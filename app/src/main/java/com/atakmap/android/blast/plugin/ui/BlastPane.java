@@ -27,6 +27,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.atakmap.android.blast.plugin.R;
 import com.atakmap.android.blast.plugin.atak.BlastStore;
 import com.atakmap.android.blast.plugin.atak.Sharing;
 import com.atakmap.android.blast.plugin.core.BlastRecord;
@@ -105,6 +106,7 @@ public final class BlastPane {
     private LinearLayout zoneCard;
     private LinearLayout zoneList;
     private TextView zoneListHeader;
+    private Button deleteClearedBtn;
 
     private String selectedRowId;
     private boolean customMode;
@@ -181,7 +183,7 @@ public final class BlastPane {
             @Override
             public void run() {
                 if (zoneCard != null)
-                    root.smoothScrollTo(0, zoneCard.getTop());
+                    root.smoothScrollTo(0, 0);
             }
         });
     }
@@ -226,7 +228,30 @@ public final class BlastPane {
                 "Bomb Threat Stand-Off Card", "").trim() + "), "
                 + table.editionLabel(), 12, DIM, false));
 
-        col.addView(header("1. THREAT"));
+        LinearLayout listHead = horizontal();
+        zoneListHeader = header("INCIDENTS ON THE MAP");
+        listHead.addView(zoneListHeader, weight());
+        deleteClearedBtn = button("Delete all cleared", BTN);
+        deleteClearedBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                confirmDeleteCleared();
+            }
+        });
+        LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        dlp.gravity = Gravity.BOTTOM;
+        deleteClearedBtn.setVisibility(View.GONE);
+        listHead.addView(deleteClearedBtn, dlp);
+        col.addView(listHead);
+        zoneList = vertical();
+        col.addView(zoneList);
+
+        zoneCard = vertical();
+        col.addView(zoneCard);
+
+        col.addView(header("NEW INCIDENT: 1. THREAT"));
         List<StandoffRow> rows = table.rows();
         for (int i = 0; i < rows.size(); i += 2) {
             LinearLayout line = horizontal();
@@ -235,6 +260,7 @@ public final class BlastPane {
                 Button b = button(r.label + "\n"
                         + Formats.thousands(r.capacityLb) + " lb", BTN);
                 b.setTag(r.id);
+                setIcon(b, threatIcon(r.id));
                 b.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
@@ -259,7 +285,7 @@ public final class BlastPane {
         qtyEdit = new EditText(plugin);
         qtyEdit.setInputType(InputType.TYPE_CLASS_NUMBER
                 | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        qtyEdit.setHint("Estimated quantity");
+        qtyEdit.setHint("Estimate (TNT equivalent)");
         qtyEdit.setTextColor(TEXT);
         qtyEdit.setHintTextColor(DIM);
         qtyEdit.setSingleLine(true);
@@ -303,7 +329,7 @@ public final class BlastPane {
         selectionText.setPadding(0, dp(4), 0, dp(4));
         col.addView(selectionText);
 
-        col.addView(header("2. PLACE"));
+        col.addView(header("NEW INCIDENT: 2. PLACE"));
         targetBtn = button("", SEND);
         targetBtn.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -362,14 +388,6 @@ public final class BlastPane {
                     }
                 });
         col.addView(auto);
-
-        zoneCard = vertical();
-        col.addView(zoneCard);
-
-        zoneListHeader = header("ZONES ON THE MAP");
-        col.addView(zoneListHeader);
-        zoneList = vertical();
-        col.addView(zoneList);
 
         TextView foot = text(Guidance.DISCLAIMER, 11, DIM, false);
         foot.setPadding(0, dp(12), 0, dp(4));
@@ -430,12 +448,12 @@ public final class BlastPane {
         } else {
             StandoffRow r = selection.row;
             selectionText.setText(selection.explain() + "\nMandatory evac "
-                    + Formats.cardDistance(r.mandatoryFt)
+                    + Formats.ft(r.mandatoryFt) + " ("
+                    + Formats.thousands(r.mandatoryMetres()) + " m)"
                     + " · Shelter-in-place to "
                     + Formats.ft(r.shelterToFt) + " · Preferred "
                     + Formats.ft(r.preferredFt) + "+ ("
-                    + Formats.thousands(Formats.cardMetres(r.preferredFt))
-                    + " m)");
+                    + Formats.thousands(r.preferredMetres()) + " m)");
             selectionText.setTextColor(TEXT);
         }
         updatePlacement();
@@ -491,7 +509,7 @@ public final class BlastPane {
             main.post(new Runnable() {
                 @Override
                 public void run() {
-                    root.smoothScrollTo(0, zoneCard.getTop());
+                    root.smoothScrollTo(0, 0);
                 }
             });
         } catch (RuntimeException e) {
@@ -604,7 +622,7 @@ public final class BlastPane {
             return;
         }
         zoneCard.setVisibility(View.VISIBLE);
-        zoneCard.addView(header("SELECTED ZONE"));
+        zoneCard.addView(header("SELECTED INCIDENT"));
         LinearLayout card = vertical();
         card.setBackgroundColor(CARD);
         int p = dp(8);
@@ -613,6 +631,8 @@ public final class BlastPane {
 
         TextView name = text(ATAKUtilities.getDisplayName(m), 17,
                 r.isCleared() ? DIM : TEXT, true);
+        setIcon(name, threatIcon(r.rowId));
+        name.setCompoundDrawablePadding(dp(6));
         card.addView(name);
         card.addView(text(Labels.threat(r)
                 + (r.isCleared() ? " · CLEARED" : ""), 13,
@@ -629,10 +649,15 @@ public final class BlastPane {
             lp.setMargins(0, 0, dp(6), 0);
             lp.gravity = Gravity.CENTER_VERTICAL;
             line.addView(sw, lp);
-            line.addView(text(rows[i][0], 14, TEXT, false), weight());
+            line.addView(text(rows[i][0], 14, TEXT, false),
+                    new LinearLayout.LayoutParams(0,
+                            ViewGroup.LayoutParams.WRAP_CONTENT, 1.3f));
             line.addView(text(rows[i][1], 14, TEXT, true), weight());
+            line.addView(text(rows[i][2], 14, TEXT, true), weight());
             card.addView(line);
         }
+
+        card.addView(text(Labels.metresNote(r), 11, DIM, false));
 
         youText = text("", 14, TEXT, false);
         youText.setPadding(0, dp(6), 0, 0);
@@ -680,9 +705,7 @@ public final class BlastPane {
         fly.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                MapItem pref = mapView.getMapItem(m.getUID()
-                        + BlastStore.PREF_SUFFIX);
-                MapTouchController.goTo(pref != null ? pref : m, false);
+                goTo(m);
             }
         });
         a1.addView(sendAll, new LinearLayout.LayoutParams(0,
@@ -780,55 +803,154 @@ public final class BlastPane {
         Collections.sort(zones, new Comparator<Marker>() {
             @Override
             public int compare(Marker a, Marker b) {
+                // Active incidents first, then by distance.
+                boolean ca = isCleared(a), cb = isCleared(b);
+                if (ca != cb)
+                    return ca ? 1 : -1;
                 return Double.compare(distance(ref, a), distance(ref, b));
             }
         });
+        int cleared = 0;
         StringBuilder sig = new StringBuilder();
         for (Marker m : zones) {
-            BlastRecord r = BlastStore.read(m);
-            double d = distance(ref, m);
-            sig.append(m.getUID()).append(r != null && r.isCleared())
+            boolean c = isCleared(m);
+            if (c)
+                cleared++;
+            sig.append(m.getUID()).append(c)
                     .append(ATAKUtilities.getDisplayName(m))
-                    .append(Math.round(d / 10)).append(';');
+                    .append(Math.round(distance(ref, m) / 10)).append(';');
         }
         sig.append(selectedZoneUid);
+        deleteClearedBtn.setVisibility(cleared > 0 ? View.VISIBLE : View.GONE);
+        deleteClearedBtn.setText("Delete all cleared (" + cleared + ")");
         if (sig.toString().equals(listSignature))
             return;
         listSignature = sig.toString();
         zoneList.removeAllViews();
-        zoneListHeader.setText("ZONES ON THE MAP (" + zones.size() + ")");
+        int active = zones.size() - cleared;
+        zoneListHeader.setText("INCIDENTS ON THE MAP: " + active + " active"
+                + (cleared > 0 ? ", " + cleared + " cleared" : ""));
         if (zones.isEmpty()) {
-            zoneList.addView(text("None yet.", 13, DIM, false));
+            zoneList.addView(text("None. Choose a threat below and place it.",
+                    13, DIM, false));
             return;
         }
         for (final Marker m : zones) {
             BlastRecord r = BlastStore.read(m);
             if (r == null)
                 continue;
+            boolean sel = m.getUID().equals(selectedZoneUid);
             double d = distance(ref, m);
             String where = "";
             if (!Double.isNaN(d)) {
-                where = " · " + Formats.measured(d);
+                where = "\n" + Formats.measured(d);
                 if (!r.isCleared())
-                    where += " · " + PositionCheck.zoneOf(r.row(), d).title;
+                    where += " · you: " + PositionCheck.zoneOf(r.row(), d).title;
             }
+            LinearLayout row = horizontal();
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setBackgroundColor(sel ? SEL : CARD);
+            int p = dp(6);
+            row.setPadding(p, p, p, p);
+            View sw = new View(plugin);
+            sw.setBackgroundColor(r.isCleared() ? DIM : RED);
+            LinearLayout.LayoutParams sl = new LinearLayout.LayoutParams(dp(6),
+                    dp(36));
+            sl.setMargins(0, 0, dp(6), 0);
+            row.addView(sw, sl);
             TextView t = text(ATAKUtilities.getDisplayName(m) + where, 14,
-                    r.isCleared() ? DIM : TEXT, m.getUID().equals(
-                            selectedZoneUid));
-            int p = dp(8);
-            t.setPadding(p, p, p, p);
-            if (m.getUID().equals(selectedZoneUid))
-                t.setBackgroundColor(SEL);
-            t.setOnClickListener(new View.OnClickListener() {
+                    r.isCleared() ? DIM : TEXT, sel);
+            setIcon(t, threatIcon(r.rowId));
+            t.setCompoundDrawablePadding(dp(6));
+            row.addView(t, new LinearLayout.LayoutParams(0,
+                    ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+            Button go = button("Go to", BTN);
+            go.setMinWidth(dp(56));
+            go.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    goTo(m);
+                }
+            });
+            row.addView(go);
+            Button del = button("Delete", BTN);
+            del.setMinWidth(dp(56));
+            del.setTextColor(RED);
+            del.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    confirmDelete(m);
+                }
+            });
+            row.addView(del);
+            View.OnClickListener select = new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
                     selectedZoneUid = m.getUID();
                     listSignature = "";
+                    cardSignature = "";
                     refresh();
-                    MapTouchController.goTo(m, false);
                 }
-            });
-            zoneList.addView(t);
+            };
+            t.setOnClickListener(select);
+            row.setOnClickListener(select);
+            LinearLayout.LayoutParams rl = full();
+            rl.setMargins(0, 0, 0, dp(3));
+            zoneList.addView(row, rl);
+        }
+    }
+
+    private static boolean isCleared(Marker m) {
+        BlastRecord r = BlastStore.read(m);
+        return r != null && r.isCleared();
+    }
+
+    /** Fly to the incident, framing the preferred ring. */
+    private void goTo(Marker m) {
+        selectedZoneUid = m.getUID();
+        listSignature = "";
+        cardSignature = "";
+        MapItem pref = mapView.getMapItem(m.getUID() + BlastStore.PREF_SUFFIX);
+        MapTouchController.goTo(pref != null ? pref : m, false);
+        refresh();
+    }
+
+    private int threatIcon(String rowId) {
+        if (rowId == null)
+            return 0;
+        switch (rowId) {
+            case "PIPE_BOMB":
+                return R.drawable.ic_threat_pipe_bomb;
+            case "SUICIDE_BOMBER":
+                return R.drawable.ic_threat_suicide_bomber;
+            case "BRIEFCASE":
+                return R.drawable.ic_threat_briefcase;
+            case "CAR":
+                return R.drawable.ic_threat_car;
+            case "SUV_VAN":
+                return R.drawable.ic_threat_suv_van;
+            case "SMALL_TRUCK":
+                return R.drawable.ic_threat_small_truck;
+            case "CONTAINER_TRUCK":
+                return R.drawable.ic_threat_container_truck;
+            case "SEMI_TRAILER":
+                return R.drawable.ic_threat_semi_trailer;
+            default:
+                return 0;
+        }
+    }
+
+    private void setIcon(TextView v, int res) {
+        if (res == 0)
+            return;
+        try {
+            android.graphics.drawable.Drawable d = plugin.getResources()
+                    .getDrawable(res, plugin.getTheme());
+            int sz = dp(28);
+            d.setBounds(0, 0, sz, sz);
+            v.setCompoundDrawablesRelative(d, null, null, null);
+        } catch (RuntimeException e) {
+            Log.w(TAG, "icon " + res + " unavailable", e);
         }
     }
 
@@ -914,11 +1036,13 @@ public final class BlastPane {
     }
 
     private void confirmDelete(final Marker m) {
+        final String name = ATAKUtilities.getDisplayName(m);
         new AlertDialog.Builder(mapView.getContext())
-                .setTitle("Delete " + ATAKUtilities.getDisplayName(m) + "?")
-                .setMessage("Delete for everyone sends a remove request to "
-                        + "every connected TAK client. Clients that are "
-                        + "offline keep their copy.")
+                .setTitle("Delete " + name + "?")
+                .setMessage("Removes the marker and both rings of this "
+                        + "incident.\n\nDelete for everyone also sends a "
+                        + "remove request to every connected TAK client. "
+                        + "Clients that are offline keep their copy.")
                 .setPositiveButton("Delete for everyone",
                         new DialogInterface.OnClickListener() {
                             @Override
@@ -943,8 +1067,52 @@ public final class BlastPane {
                 .show();
     }
 
+    private void confirmDeleteCleared() {
+        final List<Marker> cleared = new ArrayList<>();
+        for (Marker m : store.all())
+            if (isCleared(m))
+                cleared.add(m);
+        if (cleared.isEmpty())
+            return;
+        StringBuilder names = new StringBuilder();
+        for (Marker m : cleared)
+            names.append("\n• ").append(ATAKUtilities.getDisplayName(m));
+        new AlertDialog.Builder(mapView.getContext())
+                .setTitle("Delete " + cleared.size() + " cleared incident"
+                        + (cleared.size() == 1 ? "" : "s") + "?")
+                .setMessage("Removes each marker and its rings:" + names
+                        + "\n\nActive incidents are not touched.")
+                .setPositiveButton("Delete for everyone",
+                        new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface d, int w) {
+                                for (Marker m : cleared) {
+                                    try {
+                                        sharing.deleteForEveryone(m);
+                                    } catch (RuntimeException e) {
+                                        Log.e(TAG, "delete failed", e);
+                                    }
+                                }
+                                afterDelete();
+                            }
+                        })
+                .setNeutralButton("This device only",
+                        new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface d, int w) {
+                                for (Marker m : cleared)
+                                    store.delete(m);
+                                afterDelete();
+                            }
+                        })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
     private void afterDelete() {
-        selectedZoneUid = null;
+        // Keep the selection if a different incident was deleted.
+        if (selectedZone() == null)
+            selectedZoneUid = null;
         cardSignature = "";
         listSignature = "";
         refresh();

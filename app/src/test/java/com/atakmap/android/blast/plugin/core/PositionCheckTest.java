@@ -23,18 +23,25 @@ public class PositionCheckTest {
     public void boundariesFollowTheCard() {
         for (StandoffRow r : StandoffTable.CISA_2025_08.rows()) {
             assertEquals(Zone.MANDATORY, PositionCheck.zoneOf(r, 0));
+            // Zones follow the drawn rings: the larger of feet and the
+            // published metres.
             assertEquals(Zone.MANDATORY,
                     PositionCheck.zoneOf(r, ft(r.mandatoryFt)));
+            assertEquals(Zone.MANDATORY,
+                    PositionCheck.zoneOf(r, r.mandatoryRadiusM()));
             assertEquals(Zone.SHELTER,
-                    PositionCheck.zoneOf(r, ft(r.mandatoryFt + 0.5)));
-            assertEquals(Zone.SHELTER,
-                    PositionCheck.zoneOf(r, ft(r.shelterFromFt)));
+                    PositionCheck.zoneOf(r, r.mandatoryRadiusM() + 0.1));
+            assertEquals(Zone.SHELTER, PositionCheck.zoneOf(r,
+                    Math.max(ft(r.shelterFromFt), r.shelterFromM)));
             assertEquals(Zone.SHELTER,
                     PositionCheck.zoneOf(r, ft(r.shelterToFt)));
             assertEquals(Zone.SHELTER,
-                    PositionCheck.zoneOf(r, ft(r.preferredFt - 0.01)));
+                    PositionCheck.zoneOf(r, r.preferredRadiusM() - 0.01));
             assertEquals(Zone.PREFERRED,
-                    PositionCheck.zoneOf(r, ft(r.preferredFt)));
+                    PositionCheck.zoneOf(r, r.preferredRadiusM()));
+            assertEquals(Zone.PREFERRED,
+                    PositionCheck.zoneOf(r, Math.max(ft(r.preferredFt),
+                            r.preferredM)));
             assertEquals(Zone.PREFERRED,
                     PositionCheck.zoneOf(r, ft(r.preferredFt * 10)));
         }
@@ -47,7 +54,7 @@ public class PositionCheckTest {
         assertEquals(Zone.SHELTER, res.zone);
         assertEquals("450 ft (137 m) from the device: SHELTER-IN-PLACE zone.",
                 res.headline());
-        assertEquals("Move about 1,950 ft farther, to at least 2,400 ft "
+        assertEquals("Move about 1,952 ft farther, to at least 2,400 ft "
                 + "(732 m). If you can't, shelter inside a building away from "
                 + "windows and exterior walls.", res.guidance());
         assertFalse(res.nearBoundary);
@@ -66,14 +73,14 @@ public class PositionCheckTest {
     @Test
     public void uncertaintyFlagsTheSafeSideOfABoundary() {
         // 10 m beyond the preferred line with 15 m uncertainty.
-        PositionCheck.Result r = PositionCheck.check(SUV, ft(2400) + 10, 15);
+        PositionCheck.Result r = PositionCheck.check(SUV, 732 + 10, 15);
         assertEquals(Zone.PREFERRED, r.zone);
         assertTrue(r.nearBoundary);
         assertTrue(r.boundaryWarning().contains("Move farther"));
         // Default uncertainty when unknown.
-        assertTrue(PositionCheck.check(SUV, ft(2400) + 10, Double.NaN)
+        assertTrue(PositionCheck.check(SUV, 732 + 10, Double.NaN)
                 .nearBoundary);
-        assertFalse(PositionCheck.check(SUV, ft(2400) + 30, Double.NaN)
+        assertFalse(PositionCheck.check(SUV, 732 + 30, Double.NaN)
                 .nearBoundary);
         // Inside the mandatory zone there's nothing worse.
         assertFalse(PositionCheck.check(SUV, 5, 50).nearBoundary);
@@ -81,10 +88,20 @@ public class PositionCheckTest {
 
     @Test
     public void countsPerZone() {
-        double[] d = { ft(10), ft(400), ft(401), ft(2399), ft(2400), ft(9999),
+        // SUV/Van preferred line is drawn at 732 m (ERG), just past 2,400 ft.
+        double[] d = { ft(10), ft(400), ft(401), ft(2399), 732, ft(9999),
                 Double.NaN };
         assertArrayEquals(new int[] { 2, 2, 2 }, PositionCheck.count(SUV, d));
         assertArrayEquals(new int[] { 0, 0, 0 },
                 PositionCheck.count(SUV, null));
+    }
+
+    @Test
+    public void carRingIsDrawnAtTheErgMetres() {
+        // 320 ft = 97.5 m but ERG2024 p. 367 publishes 98 m: the larger is
+        // drawn, so 321 ft (97.8 m) is still inside the mandatory ring.
+        StandoffRow car = StandoffTable.CISA_2025_08.row("CAR");
+        assertEquals(98.0, car.mandatoryRadiusM(), 0);
+        assertEquals(Zone.MANDATORY, PositionCheck.zoneOf(car, ft(321)));
     }
 }

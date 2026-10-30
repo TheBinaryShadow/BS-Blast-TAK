@@ -1,8 +1,11 @@
 package com.atakmap.android.blast.plugin.atak;
 
+import android.os.Handler;
+import android.os.Looper;
+
 import com.atakmap.android.blast.plugin.core.BlastCodec;
 import com.atakmap.android.blast.plugin.core.BlastRecord;
-import com.atakmap.android.blast.plugin.core.Formats;
+import com.atakmap.android.blast.plugin.core.StandoffRow;
 import com.atakmap.android.blast.plugin.core.Labels;
 import com.atakmap.android.drawing.DrawingToolsMapComponent;
 import com.atakmap.android.drawing.mapItems.DrawingCircle;
@@ -49,7 +52,8 @@ public final class BlastStore {
     /** ATAK's store for details no handler claimed. */
     static final String OPAQUE = "opaque-details";
 
-    public static final String MARKER_TYPE = "a-u-G";
+    /** Hostile ground (red diamond). 0.1 used a-u-G; those markers keep it. */
+    public static final String MARKER_TYPE = "a-h-G";
     public static final String MAND_SUFFIX = ".mand";
     public static final String PREF_SUFFIX = ".pref";
 
@@ -249,6 +253,7 @@ public final class BlastStore {
             r = read(m);
         if (r == null)
             return;
+        m.addOnGroupChangedListener(groupWatcher);
         ring(m, r, true);
         ring(m, r, false);
     }
@@ -269,8 +274,9 @@ public final class BlastStore {
             c.setCenterMarker(m);
             added = true;
         }
-        double radiusM = Formats.ftToM(mandatory ? r.mandatoryFt
-                : r.preferredFt);
+        StandoffRow row = r.row();
+        double radiusM = mandatory ? row.mandatoryRadiusM()
+                : row.preferredRadiusM();
         c.setMetaString(META_PARENT, m.getUID());
         c.setMetaBoolean("editable", false);
         c.setMovable(false);
@@ -301,6 +307,7 @@ public final class BlastStore {
                 c.setCenterMarker(m);
         }
         c.persist(mapView.getMapEventDispatcher(), null, BlastStore.class);
+        c.addOnGroupChangedListener(groupWatcher);
     }
 
     /** The marker and its rings, marker first (send order). */
@@ -325,10 +332,74 @@ public final class BlastStore {
         }
     }
 
-    /** Remove the zone on this device. */
+    /** Remove the whole incident (marker and both rings) on this device. */
     public void delete(Marker m) {
-        String uid = m.getUID();
-        m.removeFromGroup();
-        removeRings(uid);
+        deleteIncident(m.getUID());
+    }
+
+    /** Remove the marker and rings for a marker UID, whichever still exist. */
+    public void deleteIncident(String markerUid) {
+        if (markerUid == null)
+            return;
+        MapItem m = mapView.getMapItem(markerUid);
+        if (m != null)
+            m.removeFromGroup();
+        removeRings(markerUid);
+    }
+
+    /** Marker UID for a zone marker or ring UID. */
+    static String incidentUid(String uid) {
+        if (uid == null)
+            return null;
+        if (uid.endsWith(MAND_SUFFIX))
+            return uid.substring(0, uid.length() - MAND_SUFFIX.length());
+        if (uid.endsWith(PREF_SUFFIX))
+            return uid.substring(0, uid.length() - PREF_SUFFIX.length());
+        return uid;
+    }
+
+    // ------------------------------------------------------------------
+    // Deleting any part of an incident (ATAK delete, remote delete, the
+    // pane) removes all of it. ATAK can fire "removed" when it moves an item
+    // between groups, so the item must still be missing after a short wait.
+
+    static final long GONE_CHECK_MS = 750;
+
+    private final Handler main = new Handler(Looper.getMainLooper());
+
+    private final MapItem.OnGroupChangedListener groupWatcher =
+            new MapItem.OnGroupChangedListener() {
+                @Override
+                public void onItemAdded(MapItem item, MapGroup group) {
+                }
+
+                @Override
+                public void onItemRemoved(MapItem item, MapGroup group) {
+                    partRemoved(item.getUID());
+                }
+            };
+
+    /** Called when a zone marker or ring may have been deleted. */
+    public void partRemoved(final String uid) {
+        main.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    if (mapView.getMapItem(uid) == null)
+                        deleteIncident(incidentUid(uid));
+                } catch (RuntimeException e) {
+                    Log.e(TAG, "incident cleanup failed for " + uid, e);
+                }
+            }
+        }, GONE_CHECK_MS);
+    }
+
+    /** Stop watching (plugin stop). Items keep their data. */
+    public void dispose() {
+        main.removeCallbacksAndMessages(null);
+        for (Marker m : all()) {
+            for (MapItem mi : items(m))
+                mi.removeOnGroupChangedListener(groupWatcher);
+        }
     }
 }

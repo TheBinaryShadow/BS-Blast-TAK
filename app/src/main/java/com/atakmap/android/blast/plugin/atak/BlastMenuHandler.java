@@ -64,15 +64,37 @@ public final class BlastMenuHandler implements MapMenuHandler {
                 return;
             }
             MapMenuButtonWidget b = new MapMenuButtonWidget(atakContext);
-            MapWidget first = menu.getChildCount() > 0 ? menu.getChildAt(0)
-                    : null;
-            if (first instanceof MapMenuButtonWidget) {
-                MapMenuButtonWidget f = (MapMenuButtonWidget) first;
-                b.setWidgetBackground(f.getWidgetBackground());
-                b.setLayoutWeight(f.getLayoutWeight());
+            // Copy every layout parameter from an existing button, the way
+            // ATAK builds its own submenu back button (MenuLayoutBase).
+            // A new button otherwise keeps RadialButtonWidget defaults
+            // (width 100), which draws oversized and dark when pressed.
+            MapMenuButtonWidget f = null;
+            for (int i = 0; i < menu.getChildCount(); i++) {
+                MapWidget w = menu.getChildAt(i);
+                if (w instanceof MapMenuButtonWidget
+                        && !((MapMenuButtonWidget) w).isBackButton()) {
+                    f = (MapMenuButtonWidget) w;
+                    break;
+                }
             }
-            b.setWidgetIcon(new WidgetIcon(MapDataRef.parseUri(iconUri),
-                    new Point(16, 16), 32, 32));
+            int ax = 16, ay = 16, iw = 32, ih = 32;
+            if (f != null) {
+                b.setBackground(f.getWidgetBackground());
+                b.setLayoutWeight(f.getLayoutWeight());
+                b.setButtonSize(f.getButtonSpan(), f.getButtonWidth());
+                b.setOrientation(f.getOrientationAngle(),
+                        f.getOrientationRadius());
+                WidgetIcon fi = f.getIcon();
+                if (fi != null && fi.getIconWidth() > 0
+                        && fi.getIconHeight() > 0) {
+                    ax = fi.getAnchorX();
+                    ay = fi.getAnchorY();
+                    iw = fi.getIconWidth();
+                    ih = fi.getIconHeight();
+                }
+            }
+            b.setIcon(new WidgetIcon(MapDataRef.parseUri(iconUri),
+                    new Point(ax, ay), iw, ih));
             b.setOnButtonClickHandler(
                     new IMapMenuButtonWidget.OnButtonClickHandler() {
                         @Override

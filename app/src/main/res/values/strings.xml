@@ -2,5 +2,4 @@
 <resources>
     <string name="app_name">Blast</string>
     <string name="app_desc">Explosive-threat standoff rings from the DHS/DOJ Bomb Threat Stand-Off Card (CISA/FBI, Aug 2025). One tap draws mandatory evacuation, shelter-in-place and preferred evacuation zones, shows where you are relative to them, and shares them with the team. Fully offline.</string>
-    <string name="radial_label">Blast</string>
 </resources>

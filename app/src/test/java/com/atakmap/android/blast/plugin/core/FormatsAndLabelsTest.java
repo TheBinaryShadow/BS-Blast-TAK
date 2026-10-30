@@ -90,9 +90,24 @@ public class FormatsAndLabelsTest {
         assertTrue(Labels.mandatoryRing(c).startsWith("CLEARED "));
 
         String[][] rows = Labels.zoneRows(r);
-        assertEquals("within 400 ft (122 m)", rows[0][1]);
+        assertEquals("0–400 ft", rows[0][1]);
+        assertEquals("0–122 m", rows[0][2]);
         assertEquals("401–2,399 ft", rows[1][1]);
-        assertEquals("2,400 ft+ (732 m+)", rows[2][1]);
+        assertEquals("123–731 m", rows[1][2]);
+        assertEquals("2,400 ft+", rows[2][1]);
+        assertEquals("732+ m", rows[2][2]);
+        assertTrue(Labels.metresNote(r).contains("ERG2024 p. 367"));
+
+        // Pipe bomb: ERG publishes 21 m (the conversion would round to 22).
+        BlastRecord pipe = BlastRecord.create(
+                ZoneCalculator.forRow(T, "PIPE_BOMB"), "X", T0);
+        assertEquals("MANDATORY EVAC 70 ft (21 m)", Labels.mandatoryRing(pipe));
+        // A row this build doesn't know falls back to outward conversion.
+        java.util.Map<String, String> a = BlastCodec.encode(pipe);
+        a.put("ed", "2030-01");
+        BlastRecord other = BlastCodec.decode(a);
+        assertEquals("MANDATORY EVAC 70 ft (22 m)", Labels.mandatoryRing(other));
+        assertFalse(Labels.metresNote(other).contains("ERG"));
     }
 
     @Test

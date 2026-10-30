@@ -122,19 +122,22 @@ public class BlastPlugin implements IPlugin {
             Log.e(TAG, "radial menu registration failed", e);
         }
 
-        // Deleting a zone marker (any way: pane, ATAK delete, remote delete)
-        // takes its rings with it.
+        // Deleting any part of an incident (marker or either ring, by ATAK
+        // delete, remote delete or the pane) removes the whole incident.
+        // Backs up the per-item group listeners in BlastStore.
         removeListener = new MapEventDispatcher.MapEventDispatchListener() {
             @Override
             public void onMapEvent(MapEvent event) {
                 try {
                     MapItem item = event.getItem();
-                    if (item instanceof Marker
-                            && item.getMetaBoolean(BlastStore.META_FLAG,
-                                    false))
-                        store.removeRings(item.getUID());
+                    if (item == null)
+                        return;
+                    if ((item instanceof Marker && item.getMetaBoolean(
+                            BlastStore.META_FLAG, false))
+                            || BlastStore.isRing(item))
+                        store.partRemoved(item.getUID());
                 } catch (RuntimeException e) {
-                    Log.e(TAG, "ring cleanup failed", e);
+                    Log.e(TAG, "incident cleanup failed", e);
                 }
             }
         };
@@ -190,6 +193,8 @@ public class BlastPlugin implements IPlugin {
             controller = null;
             pane = null;
         }
+        if (store != null)
+            store.dispose();
     }
 
     private void showPane() {

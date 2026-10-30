@@ -19,9 +19,11 @@ public final class Guidance {
                     + "occur farther out.",
             "Use larger distances in open or rural areas: less cover from "
                     + "fragments.",
-            "Watch for secondary devices; vary rally points and stay out of "
-                    + "line of sight of the item.",
-            "Metres are conversions of the card's feet, rounded outward.",
+            "Move people out of line of sight of the scene and away from "
+                    + "windows (ERG2024 Guide 112).",
+            "Watch for secondary devices.",
+            "Rings are drawn at the larger of the card's feet and the "
+                    + "metres published in ERG2024 p. 367.",
             "This tool doesn't replace professional EOD, bomb squad or "
                     + "department procedures."
     };

@@ -20,7 +20,7 @@ public final class ZoneCalculator {
         }
 
         public static MassUnit parse(String s) {
-            return "kg".equalsIgnoreCase(s) ? KG : LB;
+            return s != null && "kg".equals(s.trim()) ? KG : LB;
         }
     }
 
@@ -124,6 +124,9 @@ public final class ZoneCalculator {
             return new Selection(table, null, Status.INVALID, value, unit,
                     Double.NaN);
         double lb = unit == MassUnit.KG ? Formats.kgToLb(value) : value;
+        if (Double.isInfinite(lb))
+            return new Selection(table, null, Status.ABOVE_TABLE, value, unit,
+                    Double.MAX_VALUE);
         for (StandoffRow r : table.rows()) {
             if (lb <= r.capacityLb) {
                 // Exact only for an exact pound entry; a kg conversion that
@@ -137,15 +140,19 @@ public final class ZoneCalculator {
         return new Selection(table, null, Status.ABOVE_TABLE, value, unit, lb);
     }
 
+    /** Longest quantity text accepted (the pane limits input to this). */
+    public static final int MAX_QUANTITY_CHARS = 12;
+
     /** Parse a typed quantity ("800", "1,000", "2.5"); NaN if unusable. */
     public static double parseQuantity(String s) {
         if (s == null)
             return Double.NaN;
         String t = s.trim().replace(",", "").replace(" ", "");
-        if (t.isEmpty())
+        if (t.isEmpty() || t.length() > MAX_QUANTITY_CHARS)
             return Double.NaN;
         try {
-            return Double.parseDouble(t);
+            double v = Double.parseDouble(t);
+            return Double.isInfinite(v) ? Double.NaN : v;
         } catch (NumberFormatException e) {
             return Double.NaN;
         }

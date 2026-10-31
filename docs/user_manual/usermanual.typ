@@ -4,7 +4,7 @@
 
 #show: userguide.with(
    plugin-name: "Blast",
-   plugin-version: "0.6",
+   plugin-version: "0.7",
    platform: "ATAK",
    platform-version: "5.6.0",
 )
@@ -36,7 +36,7 @@ Each incident also gets a hostile marker (red diamond) named *BLAST n* with the 
 = The incident card
 Tap an incident in the list to open its card:
 - The three distances in feet (the card) and metres (as published in ERG2024 p. 367).
-- *YOU:* your distance from the device (in miles and km beyond 10,000 ft), the zone you are in, and what the card says to do. If your GPS error could put you on the closer side of a boundary, Blast says so: move farther.
+- *YOU:* your distance from the device (in miles and km beyond 10,000 ft), the zone you are in, and what the card says to do. If your GPS error could put you on the closer side of a boundary, Blast says so: move farther. If your GPS accuracy is worse than the mandatory radius, Blast says the check is approximate.
 - *Team:* how many contacts on the map are in each zone.
 - *Provenance:* source, edition, row, your estimate (if any), who placed it and when (Zulu), and who cleared it.
 - *Rename…*, *Export…*, *Mark cleared / Reopen*, *Delete…* (this device or everyone), *Fly to*.
@@ -51,6 +51,7 @@ Above 60,000 lb (the Semi-Trailer row) the card publishes no distance, so Blast 
 = Rename and export
 - *Rename…* changes the incident's name, which is the marker's callsign, so every TAK client shows it. New incidents are named *BLAST n threat*; a renamed incident keeps its number for numbering. Choose *Rename and send to all* to update everyone.
 - Anyone can also rename the marker in plain ATAK, with or without Blast; Blast keeps that name and only adds or removes *CLEARED*.
+- Anyone can add notes to the marker's remarks, with or without Blast. Blast only replaces its own block (from *[BLAST]* to "Minimum distances, not guarantees.") and keeps everything else.
 - *Export…* saves the incident to `atak/export/Blast/` as a *data package* (.zip: marker and both rings, for ATAK, WinTAK and iTAK), *KMZ* (Google Earth) and/or *GPX* (Garmin: a waypoint plus the two rings as tracks). In KMZ and GPX the rings are 72-sided outlines drawn just outside the true circle, so they are never smaller than the doctrine distance.
 
 = Sharing, clearing and deleting

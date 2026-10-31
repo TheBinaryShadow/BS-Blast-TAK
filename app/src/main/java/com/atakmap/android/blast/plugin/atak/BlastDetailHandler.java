@@ -7,7 +7,6 @@ import com.atakmap.android.blast.plugin.core.BlastCodec;
 import com.atakmap.android.blast.plugin.core.BlastRecord;
 import com.atakmap.android.cot.detail.CotDetailHandler;
 import com.atakmap.android.maps.MapItem;
-import com.atakmap.android.maps.MapView;
 import com.atakmap.android.maps.Marker;
 import com.atakmap.comms.CommsMapComponent;
 import com.atakmap.coremap.cot.event.CotAttribute;
@@ -23,17 +22,19 @@ public final class BlastDetailHandler extends CotDetailHandler {
 
     private static final String TAG = "BlastDetailHandler";
 
-    /** Wait for the sender's rings before drawing missing ones ourselves. */
+    /**
+     * Wait for the sender's rings before drawing missing ones ourselves.
+     * Called on ATAK's CoT import thread; all map changes are posted to the
+     * main thread.
+     */
     private static final long RING_GRACE_MS = 4000;
 
-    private final MapView mapView;
     private final BlastStore store;
     private final Handler main = new Handler(Looper.getMainLooper());
     private Runnable onChange;
 
-    public BlastDetailHandler(MapView mapView, BlastStore store) {
+    public BlastDetailHandler(BlastStore store) {
         super(BlastCodec.DETAIL);
-        this.mapView = mapView;
         this.store = store;
     }
 
@@ -78,9 +79,7 @@ public final class BlastDetailHandler extends CotDetailHandler {
                 Log.w(TAG, "ignoring unusable __blast on " + item.getUID());
                 return CommsMapComponent.ImportResult.IGNORE;
             }
-            final String xml = BlastCodec.toXml(r);
-            item.setMetaString(BlastStore.META, xml);
-            item.setMetaBoolean(BlastStore.META_FLAG, true);
+            BlastStore.store(item, BlastCodec.toXml(r));
             final String uid = item.getUID();
             store.register(uid);
             main.postDelayed(new Runnable() {

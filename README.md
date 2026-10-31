@@ -37,6 +37,10 @@ or department procedures.
 _________________________________________________________________
 STATUS
 
+0.7 (Oct 2026): pre-release audit (see docs/AUDIT.md). Stale cards can no
+longer resurrect deleted incidents; people's own remarks are kept; known
+editions always draw the table's distances; listener leak fixed; poor-GPS
+warning; deprecated ATAK APIs replaced; 61 unit tests incl. fuzzing.
 0.6 (Oct 2026): Rename (name = callsign; survives renames by clients
 without Blast; number stored in the detail), Export per incident as data
 package, KMZ and GPX.

@@ -26,9 +26,9 @@ import java.util.UUID;
 import gov.tak.api.util.AttributeSet;
 
 /**
- * Zones on the map. A zone is a normal marker (CoT a-u-G, readable by any
- * TAK client) carrying the {@code __blast} detail, plus two native ATAK
- * drawing circles anchored to it:
+ * Incidents on the map. An incident is a normal marker (CoT a-h-G, readable
+ * by any TAK client) carrying the {@code __blast} detail, plus two native
+ * ATAK drawing circles anchored to it:
  * <ul>
  * <li>{@code <uid>.mand} — mandatory evacuation (red, filled)</li>
  * <li>{@code <uid>.pref} — preferred evacuation line (green), amber fill
@@ -80,8 +80,8 @@ public final class BlastStore {
 
     public BlastStore(MapView mapView) {
         this.mapView = mapView;
-        this.prefs = android.preference.PreferenceManager
-                .getDefaultSharedPreferences(mapView.getContext());
+        this.prefs = com.atakmap.android.preference.AtakPreferences
+                .getInstance(mapView.getContext()).getSharedPrefs();
         try {
             java.util.Set<String> saved = prefs.getStringSet(PREF_REGISTRY,
                     null);
@@ -145,7 +145,30 @@ public final class BlastStore {
     // ------------------------------------------------------------------
     // Reading
 
-    /** The record on a marker, adopting opaque data if needed; null if none. */
+    /**
+     * Store the record on an item: Blast's own metadata plus a copy in
+     * ATAK's opaque-details, so the detail survives (and is re-sent) even
+     * while the plugin isn't loaded.
+     */
+    static void store(MapItem item, String xml) {
+        item.setMetaString(META, xml);
+        item.setMetaBoolean(META_FLAG, true);
+        try {
+            AttributeSet opaque = item.getMetaAttributeSet(OPAQUE);
+            if (opaque == null)
+                opaque = new AttributeSet();
+            opaque.setAttribute(BlastCodec.DETAIL, xml);
+            item.setMetaAttributeSet(OPAQUE, opaque);
+        } catch (RuntimeException e) {
+            Log.w(TAG, "opaque mirror failed", e);
+        }
+    }
+
+    /**
+     * The record on a marker; null if none. If only ATAK's opaque copy
+     * exists (detail received while Blast wasn't loaded), it is adopted
+     * into Blast's metadata.
+     */
     public static BlastRecord read(MapItem item) {
         if (!(item instanceof Marker))
             return null;
@@ -251,6 +274,16 @@ public final class BlastStore {
                 fromWalk++;
         for (String uid : found.keySet())
             register(uid);
+        // Forget UIDs ATAK doesn't know at all any more (deleted while Blast
+        // wasn't loaded). Items not loaded yet are found again by the index
+        // or the walk and re-registered.
+        boolean pruned = false;
+        for (String uid : new ArrayList<>(registry)) {
+            if (!found.containsKey(uid) && mapView.getMapItem(uid) == null)
+                pruned |= registry.remove(uid);
+        }
+        if (pruned)
+            saveRegistry();
         lastScan = "found " + found.size() + " (registry " + fromRegistry
                 + "/" + registry.size() + ", index +" + fromIndex
                 + ", walk +" + fromWalk + ", walk total " + walked.size() + ")";
@@ -332,22 +365,17 @@ public final class BlastStore {
         return m;
     }
 
-    /** Store a record on its marker and bring rings and labels up to date. */
-    public void write(Marker m, BlastRecord r) {
-        String xml = BlastCodec.toXml(r);
-        m.setMetaString(META, xml);
-        m.setMetaBoolean(META_FLAG, true);
-        // Mirror into ATAK's opaque store so the detail survives (and is
-        // re-sent) even while the plugin isn't loaded.
-        try {
-            AttributeSet opaque = m.getMetaAttributeSet(OPAQUE);
-            if (opaque == null)
-                opaque = new AttributeSet();
-            opaque.setAttribute(BlastCodec.DETAIL, xml);
-            m.setMetaAttributeSet(OPAQUE, opaque);
-        } catch (RuntimeException e) {
-            Log.w(TAG, "opaque mirror failed", e);
+    /**
+     * Store a record on its marker and bring rings and labels up to date.
+     * Returns false (and changes nothing) if the marker is no longer on the
+     * map, so a stale card can't resurrect a deleted incident.
+     */
+    public boolean write(Marker m, BlastRecord r) {
+        if (!isLive(m)) {
+            Log.w(TAG, "not writing to removed incident " + m.getUID());
+            return false;
         }
+        store(m, BlastCodec.toXml(r));
         // The name is the callsign, which anyone can change (with or
         // without Blast). Only the CLEARED suffix follows the status here.
         String current = nameOf(m);
@@ -356,9 +384,12 @@ public final class BlastStore {
                 r.isCleared());
         if (!wanted.equals(current))
             setName(m, wanted);
-        m.setMetaString("remarks", Labels.remarks(r));
+        // Remarks can be edited by anyone; keep their text, replace ours.
+        m.setMetaString("remarks", Labels.mergeRemarks(
+                m.getMetaString("remarks", null), r));
         ensureRings(m, r);
         m.persist(mapView.getMapEventDispatcher(), null, BlastStore.class);
+        return true;
     }
 
     private static void setName(Marker m, String name) {
@@ -373,7 +404,7 @@ public final class BlastStore {
     public boolean rename(Marker m, String typed) {
         String clean = Names.sanitize(typed);
         BlastRecord r = read(m);
-        if (clean == null || r == null)
+        if (clean == null || r == null || !isLive(m))
             return false;
         // Record the number in the detail before the old name (which may
         // hold it, e.g. "BLAST 3 ...") is replaced, so the incident still
@@ -384,17 +415,21 @@ public final class BlastStore {
                 r = r.withNumber(n);
         }
         setName(m, Names.withStatus(clean, r.isCleared()));
-        write(m, r);
-        return true;
+        return write(m, r);
     }
 
-    /** Create missing rings and restyle existing ones. */
+    /**
+     * Create missing rings and restyle existing ones. Does nothing for a
+     * marker that is no longer on the map (rings must never be orphaned).
+     */
     public void ensureRings(Marker m, BlastRecord r) {
+        if (!isLive(m))
+            return;
         if (r == null)
             r = read(m);
         if (r == null)
             return;
-        m.addOnGroupChangedListener(groupWatcher);
+        watch(m);
         ring(m, r, true);
         ring(m, r, false);
     }
@@ -450,7 +485,7 @@ public final class BlastStore {
                 c.setCenterMarker(m);
         }
         c.persist(mapView.getMapEventDispatcher(), null, BlastStore.class);
-        c.addOnGroupChangedListener(groupWatcher);
+        watch(c);
     }
 
     /** The marker and its rings, marker first (send order). */
@@ -511,6 +546,20 @@ public final class BlastStore {
 
     private final Handler main = new Handler(Looper.getMainLooper());
 
+    /**
+     * Items already carrying {@link #groupWatcher}. ATAK's listener list
+     * keeps duplicates, so each item must be watched once. Weak, so removed
+     * items can be collected.
+     */
+    private final java.util.Set<MapItem> watched = java.util.Collections
+            .synchronizedSet(java.util.Collections.newSetFromMap(
+                    new java.util.WeakHashMap<MapItem, Boolean>()));
+
+    private void watch(MapItem item) {
+        if (watched.add(item))
+            item.addOnGroupChangedListener(groupWatcher);
+    }
+
     private final MapItem.OnGroupChangedListener groupWatcher =
             new MapItem.OnGroupChangedListener() {
                 @Override
@@ -541,9 +590,12 @@ public final class BlastStore {
     /** Stop watching (plugin stop). Items keep their data. */
     public void dispose() {
         main.removeCallbacksAndMessages(null);
-        for (Marker m : all()) {
-            for (MapItem mi : items(m))
-                mi.removeOnGroupChangedListener(groupWatcher);
+        List<MapItem> items;
+        synchronized (watched) {
+            items = new ArrayList<>(watched);
+            watched.clear();
         }
+        for (MapItem mi : items)
+            mi.removeOnGroupChangedListener(groupWatcher);
     }
 }

@@ -131,4 +131,20 @@ public class ZoneCalculatorTest {
         assertTrue(Double.isNaN(ZoneCalculator.parseQuantity("abc")));
         assertTrue(Double.isNaN(ZoneCalculator.parseQuantity(null)));
     }
+
+    @Test
+    public void hostileQuantities() {
+        assertTrue(Double.isNaN(ZoneCalculator.parseQuantity("1234567890123")));
+        assertEquals(999999999999.0, ZoneCalculator.parseQuantity("999999999999"), 0);
+        assertTrue(Double.isNaN(ZoneCalculator.parseQuantity("1e999")));
+        assertEquals(Status.ABOVE_TABLE,
+                ZoneCalculator.forQuantity(T, 1e308, MassUnit.KG).status);
+        assertEquals(Status.ABOVE_TABLE,
+                ZoneCalculator.forQuantity(T, 999999999999.0, MassUnit.KG).status);
+        // explain() never throws.
+        ZoneCalculator.forQuantity(T, 1e308, MassUnit.KG).explain();
+        assertEquals(MassUnit.LB, MassUnit.parse("KG"));
+        assertEquals(MassUnit.KG, MassUnit.parse(" kg "));
+        assertEquals(MassUnit.LB, MassUnit.parse(null));
+    }
 }

@@ -23,15 +23,13 @@ public final class Exports {
 
     /** What an export needs to know about one incident. */
     public static final class Incident {
-        public final String uid;
         public final String name;
         public final double lat;
         public final double lon;
         public final BlastRecord record;
 
-        public Incident(String uid, String name, double lat, double lon,
+        public Incident(String name, double lat, double lon,
                 BlastRecord record) {
-            this.uid = uid;
             this.name = name == null || name.isEmpty() ? "BLAST" : name;
             this.lat = lat;
             this.lon = lon;

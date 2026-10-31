@@ -10,18 +10,14 @@ public final class Labels {
     }
 
     public static final String REMARKS_PREFIX = "[BLAST]";
+    /** Last sentence of the generated block (marks where it ends). */
+    public static final String REMARKS_END = "Minimum distances, not guarantees.";
 
     /** "SUV/Van (1,000 lb)". */
     public static String threat(BlastRecord r) {
         if (r.capacityLb > 0)
             return r.rowLabel + " (" + Formats.thousands(r.capacityLb) + " lb)";
         return r.rowLabel;
-    }
-
-    /** Marker callsign: "BLAST 3 SUV/Van" / "BLAST 3 SUV/Van CLEARED". */
-    public static String markerName(int number, BlastRecord r) {
-        String base = "BLAST " + number + " " + r.rowLabel;
-        return r.isCleared() ? base + " CLEARED" : base;
     }
 
     /** Title of the inner (mandatory) ring. */
@@ -88,8 +84,32 @@ public final class Labels {
                 .append(Formats.ft(row.preferredFt)).append("+ (")
                 .append(Formats.thousands(row.preferredMetres()))
                 .append(" m). Source: ").append(provenance(r))
-                .append(" Minimum distances, not guarantees.");
+                .append(' ').append(REMARKS_END);
         return sb.toString();
+    }
+
+    /**
+     * New marker remarks that keep anything people wrote themselves.
+     * Remarks are an ordinary field any TAK client can edit; only Blast's
+     * own block (from {@link #REMARKS_PREFIX} to {@link #REMARKS_END}) is
+     * replaced. Text before and after it is kept. If the block can't be
+     * found intact, the new block goes first and the old text is kept
+     * below it, so nothing a person wrote is ever dropped.
+     */
+    public static String mergeRemarks(String existing, BlastRecord r) {
+        String block = remarks(r);
+        if (existing == null || existing.trim().isEmpty())
+            return block;
+        int start = existing.indexOf(REMARKS_PREFIX);
+        if (start >= 0) {
+            int end = existing.indexOf(REMARKS_END, start);
+            if (end >= 0) {
+                String before = existing.substring(0, start);
+                String after = existing.substring(end + REMARKS_END.length());
+                return before + block + after;
+            }
+        }
+        return block + "\n\n" + existing.trim();
     }
 
     /** Distance table rows for the zone card: {name, feet, metres}. */

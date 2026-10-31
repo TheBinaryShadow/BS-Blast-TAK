@@ -5,13 +5,16 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Everything one standoff zone set carries: which table, edition and row,
- * the distances actually used, who placed it and when, and its status.
+ * Everything one incident carries: which table, edition and row, the
+ * distances used, who placed it and when, its number and its status.
  * Immutable; edits produce a new record.
  */
 public final class BlastRecord {
 
     public static final int VERSION = 1;
+
+    /** Highest incident number accepted (also the "BLAST n" name limit). */
+    public static final int MAX_NUMBER = 999_999;
 
     public enum Status {
         ACTIVE, CLEARED;
@@ -25,7 +28,7 @@ public final class BlastRecord {
     public final String sourceId;
     public final String edition;
     public final String rowId;
-    /** Row label as printed (carried so clients without the table can show it). */
+    /** Row label (carried so clients without the table can show it). */
     public final String rowLabel;
     public final int capacityLb;
     public final int mandatoryFt;
@@ -42,36 +45,29 @@ public final class BlastRecord {
     /** Attributes this version doesn't know; kept and re-emitted. */
     public final Map<String, String> extra;
     /**
-     * Incident number (BLAST n), or 0 if unknown (0.1-0.5 records). Kept
-     * here so numbering survives renames, including by clients without
-     * Blast.
+     * Incident number (BLAST n), 0 if unknown (0.1-0.5 records). Kept here
+     * so numbering survives renames, including by clients without Blast.
      */
     public final int number;
+    /**
+     * True if a received record carried distances different from this
+     * build's copy of the same edition and row. The table's values were
+     * used instead (see {@link BlastCodec#decode}). Not transmitted.
+     */
+    public final boolean receivedMismatch;
 
     public BlastRecord(int version, String sourceId, String edition,
             String rowId, String rowLabel, int capacityLb, int mandatoryFt,
             int shelterToFt, int preferredFt, double requestedValue,
             ZoneCalculator.MassUnit requestedUnit, String byCallsign,
             long timeMillis, Status status, String clearedBy,
-            long clearedMillis, Map<String, String> extra) {
-        this(version, sourceId, edition, rowId, rowLabel, capacityLb,
-                mandatoryFt, shelterToFt, preferredFt, requestedValue,
-                requestedUnit, byCallsign, timeMillis, status, clearedBy,
-                clearedMillis, extra, 0);
-    }
-
-    public BlastRecord(int version, String sourceId, String edition,
-            String rowId, String rowLabel, int capacityLb, int mandatoryFt,
-            int shelterToFt, int preferredFt, double requestedValue,
-            ZoneCalculator.MassUnit requestedUnit, String byCallsign,
-            long timeMillis, Status status, String clearedBy,
-            long clearedMillis, Map<String, String> extra, int number) {
-        this.number = Math.max(0, number);
+            long clearedMillis, Map<String, String> extra, int number,
+            boolean receivedMismatch) {
         this.version = version;
-        this.sourceId = sourceId;
-        this.edition = edition;
-        this.rowId = rowId;
-        this.rowLabel = rowLabel;
+        this.sourceId = sourceId == null ? "" : sourceId;
+        this.edition = edition == null ? "" : edition;
+        this.rowId = rowId == null ? "" : rowId;
+        this.rowLabel = rowLabel == null ? "" : rowLabel;
         this.capacityLb = capacityLb;
         this.mandatoryFt = mandatoryFt;
         this.shelterToFt = shelterToFt;
@@ -88,9 +84,15 @@ public final class BlastRecord {
         this.extra = extra == null
                 ? Collections.<String, String> emptyMap()
                 : Collections.unmodifiableMap(new LinkedHashMap<>(extra));
+        this.number = clampNumber(number);
+        this.receivedMismatch = receivedMismatch;
     }
 
-    /** A new zone from a usable selection. */
+    static int clampNumber(int n) {
+        return n < 0 || n > MAX_NUMBER ? 0 : n;
+    }
+
+    /** A new incident from a usable selection. */
     public static BlastRecord create(ZoneCalculator.Selection sel,
             String byCallsign, long timeMillis) {
         if (sel == null || !sel.isUsable())
@@ -101,14 +103,26 @@ public final class BlastRecord {
                 r.preferredFt, sel.hasRequest() ? sel.requestedValue
                         : Double.NaN,
                 sel.requestedUnit, byCallsign, timeMillis, Status.ACTIVE, "",
-                -1, null);
+                -1, null, 0, false);
+    }
+
+    private BlastRecord with(Status st, String cby, long ct, int n) {
+        return new BlastRecord(version, sourceId, edition, rowId, rowLabel,
+                capacityLb, mandatoryFt, shelterToFt, preferredFt,
+                requestedValue, requestedUnit, byCallsign, timeMillis, st,
+                cby, ct, extra, n, false);
     }
 
     public BlastRecord withNumber(int n) {
-        return new BlastRecord(version, sourceId, edition, rowId, rowLabel,
-                capacityLb, mandatoryFt, shelterToFt, preferredFt,
-                requestedValue, requestedUnit, byCallsign, timeMillis, status,
-                clearedBy, clearedMillis, extra, n);
+        return with(status, clearedBy, clearedMillis, n);
+    }
+
+    public BlastRecord cleared(String by, long when) {
+        return with(Status.CLEARED, by, when, number);
+    }
+
+    public BlastRecord reopened() {
+        return with(Status.ACTIVE, "", -1, number);
     }
 
     public boolean hasRequest() {
@@ -119,24 +133,10 @@ public final class BlastRecord {
         return status == Status.CLEARED;
     }
 
-    public BlastRecord cleared(String by, long when) {
-        return new BlastRecord(version, sourceId, edition, rowId, rowLabel,
-                capacityLb, mandatoryFt, shelterToFt, preferredFt,
-                requestedValue, requestedUnit, byCallsign, timeMillis,
-                Status.CLEARED, by, when, extra, number);
-    }
-
-    public BlastRecord reopened() {
-        return new BlastRecord(version, sourceId, edition, rowId, rowLabel,
-                capacityLb, mandatoryFt, shelterToFt, preferredFt,
-                requestedValue, requestedUnit, byCallsign, timeMillis,
-                Status.ACTIVE, "", -1, extra, number);
-    }
-
     /**
-     * The row as carried. When this build has the same edition and the
-     * carried feet match, the table's row is returned (with its published
-     * metres); otherwise a row built from the carried feet.
+     * The row to draw and label. The table's row (with its published
+     * metres) when this build has the edition and the feet match; otherwise
+     * a row built from the carried feet (an edition this build lacks).
      */
     public StandoffRow row() {
         StandoffTable t = table();
@@ -162,10 +162,13 @@ public final class BlastRecord {
     }
 
     /**
-     * True if the carried distances differ from this build's copy of the
-     * same edition and row (should never happen; shown as a warning).
+     * True if the sender's distances differed from this build's copy of the
+     * same edition and row (shown as a warning; the table's values are
+     * drawn), or if the edition is known but the row isn't.
      */
     public boolean disagreesWithTable() {
+        if (receivedMismatch)
+            return true;
         StandoffTable t = table();
         if (t == null)
             return false;

@@ -53,8 +53,39 @@ public final class Geo {
         return new double[] { Math.toDegrees(lat2), lon2 };
     }
 
-    /** Geodesic distance in metres (NaN if Vincenty fails to converge). */
+    /** Mean earth radius (IUGG), for the spherical fallback. */
+    static final double MEAN_RADIUS = 6371008.8;
+
+    /**
+     * Geodesic distance in metres on WGS84 (Vincenty). For nearly antipodal
+     * points, where Vincenty doesn't converge, the spherical (haversine)
+     * distance is returned instead (within about 0.5 percent). NaN only for
+     * non-finite input.
+     */
     public static double distance(double lat1, double lon1, double lat2,
+            double lon2) {
+        if (!finite(lat1) || !finite(lon1) || !finite(lat2) || !finite(lon2))
+            return Double.NaN;
+        double v = vincenty(lat1, lon1, lat2, lon2);
+        return Double.isNaN(v) ? haversine(lat1, lon1, lat2, lon2) : v;
+    }
+
+    private static boolean finite(double d) {
+        return !Double.isNaN(d) && !Double.isInfinite(d);
+    }
+
+    static double haversine(double lat1, double lon1, double lat2,
+            double lon2) {
+        double p1 = Math.toRadians(lat1), p2 = Math.toRadians(lat2);
+        double dp = p2 - p1, dl = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dp / 2) * Math.sin(dp / 2)
+                + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2)
+                        * Math.sin(dl / 2);
+        return 2 * MEAN_RADIUS * Math.asin(Math.min(1, Math.sqrt(a)));
+    }
+
+    /** Vincenty inverse; NaN if it doesn't converge. */
+    static double vincenty(double lat1, double lon1, double lat2,
             double lon2) {
         double l = Math.toRadians(lon2 - lon1);
         double u1 = Math.atan((1 - F) * Math.tan(Math.toRadians(lat1)));

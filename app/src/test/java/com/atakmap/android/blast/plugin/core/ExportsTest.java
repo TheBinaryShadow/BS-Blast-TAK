@@ -28,7 +28,7 @@ public class ExportsTest {
                 "VIPER", T0).withNumber(2);
         if (cleared)
             r = r.cleared("ROOK", T0 + 60000);
-        return new Exports.Incident("uid-1", cleared ? "BLAST 2 Car CLEARED"
+        return new Exports.Incident(cleared ? "BLAST 2 Car CLEARED"
                 : "BLAST 2 Car <Main & 5th>", 36.4, -79.93, r);
     }
 
@@ -168,5 +168,19 @@ public class ExportsTest {
                 Exports.fileStem("BLAST 2 Car <Main & 5th> CLEARED", T0));
         assertEquals("BLAST_301845Z", Exports.fileStem("///", T0));
         assertEquals("BLAST_301845Z", Exports.fileStem(null, T0));
+    }
+
+    @Test
+    public void distanceNeverNaNForValidPoints() {
+        // Nearly antipodal: Vincenty doesn't converge; spherical fallback.
+        double d = Geo.distance(0.0, 0.0, 0.5, 179.7);
+        assertFalse(Double.isNaN(d));
+        assertEquals(Geo.haversine(0.0, 0.0, 0.5, 179.7), d, 1e-6);
+        assertTrue(d > 19_900_000 && d < 20_040_000);
+        assertTrue(Double.isNaN(Geo.distance(Double.NaN, 0, 0, 0)));
+        assertTrue(Double.isNaN(Geo.distance(0, 0, Double.POSITIVE_INFINITY, 0)));
+        // Spherical fallback stays within 0.5 percent of the ellipsoid.
+        double v = Geo.distance(51.5, -0.12, 48.85, 2.35);
+        assertEquals(v, Geo.haversine(51.5, -0.12, 48.85, 2.35), v * 0.005);
     }
 }

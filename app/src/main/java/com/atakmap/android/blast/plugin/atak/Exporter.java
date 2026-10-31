@@ -57,7 +57,7 @@ public final class Exporter {
             throw new IOException("not an incident");
         String name = BlastStore.nameOf(m);
         long now = System.currentTimeMillis();
-        Exports.Incident in = new Exports.Incident(m.getUID(), name,
+        Exports.Incident in = new Exports.Incident(name,
                 gp.getLatitude(), gp.getLongitude(), r);
 
         File dir = directory();
@@ -65,6 +65,11 @@ public final class Exporter {
             throw new IOException("cannot create export folder");
         File out = new File(dir, Exports.fileStem(name, now)
                 + format.extension);
+        // The stem only has [A-Za-z0-9_-]; check anyway that the file
+        // stays inside the export folder.
+        if (!out.getCanonicalFile().getParentFile()
+                .equals(dir.getCanonicalFile()))
+            throw new IOException("bad export path");
 
         switch (format) {
             case DATA_PACKAGE: {

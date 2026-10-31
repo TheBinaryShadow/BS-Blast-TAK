@@ -104,4 +104,18 @@ public class PositionCheckTest {
         assertEquals(98.0, car.mandatoryRadiusM(), 0);
         assertEquals(Zone.MANDATORY, PositionCheck.zoneOf(car, ft(321)));
     }
+
+    @Test
+    public void unusableDistanceGivesNoResult() {
+        assertNull(PositionCheck.check(SUV, Double.NaN, 5));
+        assertNull(PositionCheck.check(SUV, Double.POSITIVE_INFINITY, 5));
+        assertNull(PositionCheck.check(null, 10, 5));
+        // Bad uncertainty falls back to the default.
+        assertTrue(PositionCheck.check(SUV, 732 + 10, Double.POSITIVE_INFINITY)
+                .nearBoundary);
+        // zoneOf is conservative for a non-finite distance.
+        assertEquals(Zone.MANDATORY, PositionCheck.zoneOf(SUV, Double.NaN));
+        assertArrayEquals(new int[] { 0, 0, 1 }, PositionCheck.count(SUV,
+                new double[] { Double.POSITIVE_INFINITY, 9999 }));
+    }
 }

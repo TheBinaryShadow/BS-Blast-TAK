@@ -34,7 +34,10 @@ public final class Sharing {
         this.store = store;
     }
 
-    /** Broadcast the zone to everyone (mesh and all server connections). */
+    /**
+     * Broadcast the incident to everyone: commo sends a broadcast to every
+     * output (mesh and all TAK server connections).
+     */
     public int sendToAll(Marker m) {
         CotDispatcher d = CotMapComponent.getExternalDispatcher();
         int n = 0;
@@ -47,7 +50,6 @@ public final class Sharing {
             d.dispatchToBroadcast(ev);
             n++;
         }
-        m.setMetaBoolean("blast.sentAll", true);
         return n;
     }
 

@@ -29,7 +29,10 @@ public final class PositionCheck {
     /** Default position uncertainty when the fix reports none (metres). */
     public static final double DEFAULT_UNCERTAINTY_M = 15.0;
 
+    /** The zone at a distance; a non-finite distance counts as MANDATORY. */
     public static Zone zoneOf(StandoffRow row, double distanceM) {
+        if (Double.isNaN(distanceM) || Double.isInfinite(distanceM))
+            return Zone.MANDATORY;
         // Same radii as the drawn rings. Tolerance only absorbs
         // floating-point noise from ft→m conversions.
         double d = Math.max(0, distanceM);
@@ -95,13 +98,18 @@ public final class PositionCheck {
     }
 
     /**
-     * @param distanceM   distance from the device (zone centre) in metres
-     * @param uncertaintyM position uncertainty (CE) in metres; NaN or <= 0
-     *                    uses {@link #DEFAULT_UNCERTAINTY_M}
+     * @param distanceM    distance from the device (zone centre) in metres
+     * @param uncertaintyM position uncertainty (CE) in metres; NaN, infinite
+     *                     or <= 0 uses {@link #DEFAULT_UNCERTAINTY_M}
+     * @return null if the distance isn't a usable number
      */
     public static Result check(StandoffRow row, double distanceM,
             double uncertaintyM) {
-        if (Double.isNaN(uncertaintyM) || uncertaintyM <= 0)
+        if (row == null || Double.isNaN(distanceM)
+                || Double.isInfinite(distanceM))
+            return null;
+        if (Double.isNaN(uncertaintyM) || Double.isInfinite(uncertaintyM)
+                || uncertaintyM <= 0)
             uncertaintyM = DEFAULT_UNCERTAINTY_M;
         double d = Math.max(0, distanceM);
         Zone z = zoneOf(row, d);
@@ -116,7 +124,7 @@ public final class PositionCheck {
         if (distancesM == null)
             return c;
         for (double d : distancesM) {
-            if (Double.isNaN(d))
+            if (Double.isNaN(d) || Double.isInfinite(d))
                 continue;
             c[zoneOf(row, d).ordinal()]++;
         }

@@ -73,7 +73,6 @@ public class FormatsAndLabelsTest {
     public void labelsForClientsWithoutThePlugin() {
         BlastRecord r = BlastRecord.create(
                 ZoneCalculator.forQuantity(T, 800, MassUnit.LB), "VIPER", T0);
-        assertEquals("BLAST 3 SUV/Van", Labels.markerName(3, r));
         assertEquals("MANDATORY EVAC 400 ft (122 m)", Labels.mandatoryRing(r));
         assertEquals("PREFERRED EVAC 2,400 ft+ (732 m) / SHELTER INSIDE",
                 Labels.preferredRing(r));
@@ -89,7 +88,6 @@ public class FormatsAndLabelsTest {
         assertFalse(rem.contains("CLEARED"));
 
         BlastRecord c = r.cleared("ROOK", T0 + 60_000);
-        assertEquals("BLAST 3 SUV/Van CLEARED", Labels.markerName(3, c));
         assertTrue(Labels.remarks(c).startsWith("[BLAST] CLEARED. "));
         assertTrue(Labels.provenance(c).endsWith(
                 "CLEARED by ROOK 301846Z OCT 26."));

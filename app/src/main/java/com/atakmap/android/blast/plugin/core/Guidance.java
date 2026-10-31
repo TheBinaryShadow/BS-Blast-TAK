@@ -1,5 +1,9 @@
 package com.atakmap.android.blast.plugin.core;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
 /** Fixed caveat and card-guidance text shown in the pane. */
 public final class Guidance {
 
@@ -13,7 +17,7 @@ public final class Guidance {
             + "evacuation plan.";
 
     /** Caveats, always visible under the zone card. */
-    public static final String[] CAVEATS = {
+    public static final List<String> CAVEATS = Collections.unmodifiableList(Arrays.asList(
             "Minimum distances to prevent life-threatening injury, not "
                     + "guarantees. Other injuries (e.g. hearing damage) can "
                     + "occur farther out.",
@@ -25,10 +29,10 @@ public final class Guidance {
             "Rings are drawn at the larger of the card's feet and the "
                     + "metres published in ERG2024 p. 367.",
             "This tool doesn't replace professional EOD, bomb squad or "
-                    + "department procedures."
-    };
+                    + "department procedures."));
 
     public static final String DISCLAIMER = "Built on the public DHS/DOJ "
             + "Bomb Threat Stand-Off Card (CISA Office for Bombing Prevention "
-            + "and FBI Counter-IED Unit). Not endorsed by CISA or the FBI.";
+            + "and FBI Counter-IED Unit) and the 2024 Emergency Response "
+            + "Guidebook. Not endorsed by any of these agencies.";
 }

@@ -161,4 +161,138 @@ public class BlastCodecTest {
         assertNull(BlastCodec.parseAttributes("<__blastx a='1'/>",
                 "__blast"));
     }
+
+    // ------------------------------------------------------------------
+    // Audit (Oct 31, 2026): received data is untrusted.
+
+    private static Map<String, String> suv() {
+        Map<String, String> a = new LinkedHashMap<>();
+        a.put("src", "CISA-BTSOC");
+        a.put("ed", "2025-08");
+        a.put("row", "SUV_VAN");
+        a.put("lbl", "SUV/Van");
+        a.put("cap_lb", "1000");
+        a.put("mand_ft", "400");
+        a.put("sip_ft", "2399");
+        a.put("pref_ft", "2400");
+        return a;
+    }
+
+    @Test
+    public void knownEditionTableWinsOverTamperedDistances() {
+        Map<String, String> a = suv();
+        a.put("mand_ft", "10");
+        a.put("sip_ft", "19");
+        a.put("pref_ft", "20");
+        a.put("lbl", "Pipe Bomb");
+        BlastRecord r = BlastCodec.decode(a);
+        assertEquals(400, r.mandatoryFt);
+        assertEquals(2399, r.shelterToFt);
+        assertEquals(2400, r.preferredFt);
+        assertEquals(1000, r.capacityLb);
+        assertEquals("SUV/Van", r.rowLabel);
+        assertTrue(r.receivedMismatch);
+        assertTrue(r.disagreesWithTable());
+        // Re-encoding sends the table's values, not the tampered ones.
+        assertTrue(BlastCodec.toXml(r).contains("mand_ft=\"400\""));
+        // A matching record is not flagged.
+        assertFalse(BlastCodec.decode(suv()).receivedMismatch);
+        assertFalse(BlastCodec.decode(suv()).disagreesWithTable());
+    }
+
+    @Test
+    public void unknownEditionIsCappedAndChecked() {
+        Map<String, String> a = suv();
+        a.put("ed", "2030-01");
+        a.put("mand_ft", "1000");
+        a.put("sip_ft", "99999");
+        a.put("pref_ft", "100000");
+        assertEquals(100000, BlastCodec.decode(a).preferredFt);
+        a.put("pref_ft", "100001");
+        assertNull(BlastCodec.decode(a));
+        a.put("pref_ft", "-5");
+        assertNull(BlastCodec.decode(a));
+        a.put("pref_ft", "99999999999999999999");
+        assertNull(BlastCodec.decode(a));
+    }
+
+    @Test
+    public void incidentNumberIsClamped() {
+        Map<String, String> a = suv();
+        a.put("n", "2147483647");
+        assertEquals(0, BlastCodec.decode(a).number);
+        a.put("n", "-3");
+        assertEquals(0, BlastCodec.decode(a).number);
+        a.put("n", "999999");
+        assertEquals(999999, BlastCodec.decode(a).number);
+        a.put("n", "x");
+        assertEquals(0, BlastCodec.decode(a).number);
+    }
+
+    @Test
+    public void unknownAttributesAreBounded() {
+        Map<String, String> a = suv();
+        for (int i = 0; i < 500; i++)
+            a.put("x" + i, "v");
+        StringBuilder big = new StringBuilder();
+        for (int i = 0; i < 1000; i++)
+            big.append('y');
+        a.put("huge", big.toString());
+        BlastRecord r = BlastCodec.decode(a);
+        assertEquals(BlastCodec.MAX_ATTRIBUTES, r.extra.size());
+        assertFalse(r.extra.containsKey("huge"));
+    }
+
+    /**
+     * Random and malformed input must never throw, and anything that
+     * decodes must be a consistent, drawable record.
+     */
+    @Test
+    public void fuzzDecoderNeverThrowsAndOnlyAcceptsConsistentRecords() {
+        java.util.Random rnd = new java.util.Random(20261031L);
+        String[] keys = { "v", "src", "ed", "row", "lbl", "cap_lb", "mand_ft",
+                "sip_ft", "pref_ft", "req", "req_u", "by", "t", "st", "cby",
+                "ct", "n", "zz", "a:b", "" };
+        String[] vals = { "", "0", "-1", "1", "70", "1200", "2400", "100000",
+                "100001", "1e9", "NaN", "Infinity", "2147483648", "CISA-BTSOC",
+                "2025-08", "2030-01", "SUV_VAN", "CAR", "NOPE", "kg", "lb",
+                "CLEARED", "ACTIVE", "2026-10-30T18:45:00Z", "<&\"'>",
+                "\u0000\n\t", "\u202e\u0301" };
+        for (int i = 0; i < 20000; i++) {
+            Map<String, String> a = new LinkedHashMap<>();
+            int n = rnd.nextInt(14);
+            for (int k = 0; k < n; k++)
+                a.put(keys[rnd.nextInt(keys.length)],
+                        rnd.nextInt(5) == 0 ? Integer.toString(rnd.nextInt())
+                                : vals[rnd.nextInt(vals.length)]);
+            BlastRecord r = BlastCodec.decode(a);
+            if (r == null)
+                continue;
+            assertTrue(r.mandatoryFt > 0);
+            assertTrue(r.shelterToFt > r.mandatoryFt);
+            assertTrue(r.preferredFt > r.shelterToFt);
+            assertTrue(r.preferredFt <= BlastCodec.MAX_FT);
+            assertTrue(r.number >= 0 && r.number <= BlastRecord.MAX_NUMBER);
+            StandoffRow row = r.row();
+            assertTrue(row.mandatoryRadiusM() > 0);
+            assertTrue(row.preferredRadiusM() > row.mandatoryRadiusM());
+            // Round trip is stable.
+            BlastRecord back = BlastCodec.fromXml(BlastCodec.toXml(r));
+            assertNotNull(back);
+            assertEquals(BlastCodec.toXml(r), BlastCodec.toXml(back));
+            Labels.remarks(r);
+            Labels.provenance(r);
+        }
+        // Raw text through the XML attribute reader.
+        String alphabet = "<>/=\"' _ab:&#;x0123456789__blast";
+        for (int i = 0; i < 20000; i++) {
+            StringBuilder sb = new StringBuilder();
+            if (rnd.nextBoolean())
+                sb.append("<__blast ");
+            int len = rnd.nextInt(60);
+            for (int k = 0; k < len; k++)
+                sb.append(alphabet.charAt(rnd.nextInt(alphabet.length())));
+            BlastCodec.fromXml(sb.toString());
+        }
+    }
 }

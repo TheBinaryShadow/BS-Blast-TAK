@@ -11,12 +11,14 @@ import java.util.Map;
  * <pre>
  * &lt;__blast v="1" src="CISA-BTSOC" ed="2025-08" row="SUV_VAN" lbl="SUV/Van"
  *   cap_lb="1000" mand_ft="400" sip_ft="2399" pref_ft="2400" req="800" req_u="lb"
- *   by="CALLSIGN" t="2026-10-30T18:45:00.000Z" st="ACTIVE" cby="" ct=""/&gt;
+ *   by="CALLSIGN" t="2026-10-30T18:45:00.000Z" st="ACTIVE" cby="" ct="" n="3"/&gt;
  * </pre>
  *
- * Distances carried in the detail are what the sender drew and are shown as
- * received; they're only replaced from this build's table when missing or
- * invalid.
+ * Received data is untrusted. When this build has the sender's edition and
+ * row, the table's values are used (a mismatch is flagged, never drawn), so
+ * a corrupted or tampered detail can't shrink the rings. For an edition
+ * this build lacks, the carried distances are used if they are consistent
+ * and within {@link #MAX_FT}.
  */
 public final class BlastCodec {
 
@@ -29,6 +31,15 @@ public final class BlastCodec {
 
     /** Longest text value kept from received data. */
     static final int MAX_TEXT = 64;
+
+    /**
+     * Largest distance accepted from an edition this build doesn't have:
+     * 100,000 ft (30 km), about ten times the largest card distance.
+     */
+    static final int MAX_FT = 100_000;
+
+    /** Most attributes kept from one received detail. */
+    static final int MAX_ATTRIBUTES = 64;
 
     private BlastCodec() {
     }
@@ -95,20 +106,26 @@ public final class BlastCodec {
         int sip = parseInt(a.get("sip_ft"), pref - 1);
         int cap = parseInt(a.get("cap_lb"), -1);
         boolean valid = mand > 0 && pref > mand && sip > mand && sip < pref
-                && pref <= 1_000_000;
-        if (!valid) {
-            if (known == null)
-                return null;
+                && pref <= MAX_FT;
+        String label = text(a.get("lbl"));
+        boolean mismatch = false;
+        if (known != null) {
+            // This build's table is authoritative for its own editions.
+            mismatch = valid && (mand != known.mandatoryFt
+                    || sip != known.shelterToFt || pref != known.preferredFt
+                    || (cap > 0 && cap != known.capacityLb));
             mand = known.mandatoryFt;
             sip = known.shelterToFt;
             pref = known.preferredFt;
+            cap = known.capacityLb;
+            label = known.label;
+        } else if (!valid) {
+            return null;
         }
-        if (cap <= 0)
-            cap = known != null ? known.capacityLb : 0;
-
-        String label = text(a.get("lbl"));
+        if (cap <= 0 || cap > 100_000_000)
+            cap = 0;
         if (label.isEmpty())
-            label = known != null ? known.label : rowId;
+            label = rowId;
 
         double req = parseDouble(a.get("req"));
         if (!(req > 0) || Double.isInfinite(req))
@@ -116,10 +133,13 @@ public final class BlastCodec {
 
         Map<String, String> extra = new LinkedHashMap<>();
         outer: for (Map.Entry<String, String> e : a.entrySet()) {
+            if (extra.size() >= MAX_ATTRIBUTES)
+                break;
             for (String k : KNOWN)
                 if (k.equals(e.getKey()))
                     continue outer;
-            if (isName(e.getKey()) && e.getValue() != null)
+            if (isName(e.getKey()) && e.getValue() != null
+                    && e.getValue().length() <= 256)
                 extra.put(e.getKey(), e.getValue());
         }
 
@@ -128,7 +148,7 @@ public final class BlastCodec {
                 text(a.get("by")), Formats.parseIso(a.get("t")),
                 BlastRecord.Status.parse(a.get("st")), text(a.get("cby")),
                 Formats.parseIso(a.get("ct")), extra,
-                parseInt(a.get("n"), 0));
+                parseInt(a.get("n"), 0), mismatch);
     }
 
     // ------------------------------------------------------------------

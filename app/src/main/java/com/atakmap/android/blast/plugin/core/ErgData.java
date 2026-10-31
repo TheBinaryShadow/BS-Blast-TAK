@@ -60,7 +60,7 @@ public final class ErgData {
                     new LpgRow("LPG_SEMITANKER", "Semitanker LPG", 18144, 37850, 40000, 10000, 152, 499, 608, 1996)));
 
     /** Footnotes of p. 368, paraphrased. */
-    public static final String[] LPG_NOTES = {
+    public static final List<String> LPG_NOTES = Collections.unmodifiableList(Arrays.asList(
             "Mass/volume is the most LPG that could reasonably fit in the "
                     + "container or vehicle; variations possible.",
             "Fireball diameter assumes efficient mixing of the gas with air.",
@@ -68,8 +68,7 @@ public final class ErgData {
                     + "the flame height.",
             "For a loaded LPG tank with explosives on the exterior. A tank "
                     + "filled with high explosives needs a significantly "
-                    + "greater stand-off."
-    };
+                    + "greater stand-off."));
 
     // ------------------------------------------------------------------
     // p. 359: BLEVE (use with caution)

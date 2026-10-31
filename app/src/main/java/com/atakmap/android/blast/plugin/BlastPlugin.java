@@ -33,7 +33,7 @@ import gov.tak.platform.marshal.MarshalManager;
  * Stand-Off Card, drawn as native ATAK shapes any TAK client can see.
  * Offline; no network code, no permissions.
  */
-public class BlastPlugin implements IPlugin {
+public final class BlastPlugin implements IPlugin {
 
     private static final String TAG = "BlastPlugin";
 
@@ -88,7 +88,7 @@ public class BlastPlugin implements IPlugin {
             uiService.addToolbarItem(toolbarItem);
 
         try {
-            detailHandler = new BlastDetailHandler(mapView, store);
+            detailHandler = new BlastDetailHandler(store);
             detailHandler.setOnChange(new Runnable() {
                 @Override
                 public void run() {
@@ -107,14 +107,14 @@ public class BlastPlugin implements IPlugin {
                     store, new BlastMenuHandler.Listener() {
                         @Override
                         public void openZone(Marker zone) {
-                            showPane();
-                            controller.openZone(zone);
+                            if (showPane())
+                                controller.openZone(zone);
                         }
 
                         @Override
                         public void placeAt(Marker target) {
-                            showPane();
-                            controller.placeAt(target);
+                            if (showPane())
+                                controller.placeAt(target);
                         }
                     });
             MapMenuReceiver.getInstance().registerMapMenuHandler(menuHandler);
@@ -144,7 +144,7 @@ public class BlastPlugin implements IPlugin {
         mapView.getMapEventDispatcher().addMapEventListener(
                 MapEvent.ITEM_REMOVED, removeListener);
 
-        // Zones loaded before the plugin: adopt their stored detail and
+        // Incidents loaded before the plugin: adopt their stored detail and
         // make sure the rings exist.
         try {
             store.adoptAll();
@@ -197,9 +197,10 @@ public class BlastPlugin implements IPlugin {
             store.dispose();
     }
 
-    private void showPane() {
-        if (uiService == null)
-            return;
+    /** Show the pane; false if ATAK offers no UI service. */
+    private boolean showPane() {
+        if (uiService == null || mapView == null)
+            return false;
         if (pane == null) {
             controller = new BlastPane(pluginContext, mapView, store, sharing);
             pane = new PaneBuilder(controller.getView())
@@ -211,5 +212,6 @@ public class BlastPlugin implements IPlugin {
         controller.onShow();
         if (!uiService.isPaneVisible(pane))
             uiService.showPane(pane, null);
+        return true;
     }
 }

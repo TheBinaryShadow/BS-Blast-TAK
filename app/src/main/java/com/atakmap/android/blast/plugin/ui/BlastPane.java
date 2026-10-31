@@ -10,7 +10,6 @@ import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Handler;
 import android.os.Looper;
-import android.preference.PreferenceManager;
 import android.text.Editable;
 import android.text.InputType;
 import android.text.TextWatcher;
@@ -52,10 +51,11 @@ import com.atakmap.android.maps.MapTouchController;
 import com.atakmap.android.maps.MapView;
 import com.atakmap.android.maps.Marker;
 import com.atakmap.android.maps.PointMapItem;
+import com.atakmap.android.preference.AtakPreferences;
 import com.atakmap.android.util.ATAKUtilities;
 import com.atakmap.android.toolbar.widgets.TextContainer;
 import com.atakmap.coremap.log.Log;
-import com.atakmap.coremap.maps.coords.GeoCalculations;
+import com.atakmap.android.blast.plugin.core.Geo;
 import com.atakmap.coremap.maps.coords.GeoPoint;
 import com.atakmap.coremap.maps.coords.GeoPointMetaData;
 
@@ -65,10 +65,12 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * The Blast pane, built in code: threat picker, placement, the selected
- * zone's card (distances, where you are, team counts, provenance, actions,
- * caveats) and the list of zones on the map. All text is concatenated; no
- * String.format anywhere.
+ * The Blast pane, built in code: the list of incidents on the map, the
+ * selected incident's card (distances, where you are, team counts,
+ * provenance, actions, caveats) and the new-incident picker. All text is
+ * concatenated; no String.format anywhere. Runs on the main thread only.
+ * Every action re-checks that its incident is still on the map, so a card
+ * left open after a remote delete can't resurrect the incident.
  */
 public final class BlastPane {
 
@@ -149,8 +151,8 @@ public final class BlastPane {
         this.store = store;
         this.sharing = sharing;
         this.exporter = new Exporter(store);
-        this.prefs = PreferenceManager.getDefaultSharedPreferences(
-                mapView.getContext());
+        this.prefs = AtakPreferences.getInstance(mapView.getContext())
+                .getSharedPrefs();
         this.root = new ScrollView(plugin);
         root.setBackgroundColor(BG);
         root.addView(build());
@@ -300,6 +302,10 @@ public final class BlastPane {
         qtyEdit.setTextColor(TEXT);
         qtyEdit.setHintTextColor(DIM);
         qtyEdit.setSingleLine(true);
+        qtyEdit.setFilters(new android.text.InputFilter[] {
+                new android.text.InputFilter.LengthFilter(
+                        ZoneCalculator.MAX_QUANTITY_CHARS)
+        });
         qtyEdit.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int a, int b, int c) {
@@ -387,7 +393,7 @@ public final class BlastPane {
         col.addView(place);
 
         CheckBox auto = new CheckBox(plugin);
-        auto.setText("Send new zones to everyone right away");
+        auto.setText("Send new incidents to everyone right away");
         auto.setTextColor(TEXT);
         auto.setChecked(prefs.getBoolean(PREF_AUTO_SEND, false));
         auto.setOnCheckedChangeListener(
@@ -508,7 +514,7 @@ public final class BlastPane {
                     System.currentTimeMillis());
             Marker m = store.create(at, r);
             if (m == null) {
-                toast("Could not place the zone.");
+                toast("Could not place the incident.");
                 return;
             }
             placeTarget = null;
@@ -516,9 +522,9 @@ public final class BlastPane {
             updatePlacement();
             if (prefs.getBoolean(PREF_AUTO_SEND, false)) {
                 sharing.sendToAll(m);
-                toast("Zone placed and sent to everyone.");
+                toast("Incident placed and sent to everyone.");
             } else {
-                toast("Zone placed. Use SEND TO ALL to share it.");
+                toast("Incident placed. Use SEND TO ALL to share it.");
             }
             onShow();
             main.post(new Runnable() {
@@ -529,7 +535,7 @@ public final class BlastPane {
             });
         } catch (RuntimeException e) {
             Log.e(TAG, "place failed", e);
-            toast("Could not place the zone.");
+            toast("Could not place the incident.");
         }
     }
 
@@ -557,6 +563,12 @@ public final class BlastPane {
                         + "Press Cancel to stop.");
     }
 
+    /**
+     * Uses MapView.inverseWithElevation, deprecated but not slated for
+     * removal (DeprecatedApi forRemoval=false); ATAK's own Tool.findPoint
+     * converts taps the same way.
+     */
+    @SuppressWarnings("deprecation")
     private void onPicked(MapEvent event) {
         GeoPoint gp = null;
         MapItem item = event.getItem();
@@ -700,7 +712,10 @@ public final class BlastPane {
             @Override
             public void onClick(View v) {
                 try {
-                    int n = sharing.sendToAll(m);
+                    Marker l = live(m);
+                    if (l == null)
+                        return;
+                    int n = sharing.sendToAll(l);
                     toast("Sent to everyone (" + n + " items).");
                 } catch (RuntimeException e) {
                     Log.e(TAG, "send failed", e);
@@ -712,7 +727,9 @@ public final class BlastPane {
         sendTo.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                sharing.sendTo(m);
+                Marker l = live(m);
+                if (l != null)
+                    sharing.sendTo(l);
             }
         });
         Button fly = button("Fly to", BTN);
@@ -785,22 +802,32 @@ public final class BlastPane {
             youText.setText("YOU: no GPS position yet.");
             youText.setTextColor(DIM);
         } else {
+            // CE is NaN when unknown; CotPoint uses 9999999 for unknown.
             double ce = sp.getCE();
-            if (Double.isNaN(ce) || ce > 1000)
-                ce = Double.NaN;
+            boolean ceKnown = !Double.isNaN(ce) && ce > 0 && ce < 9999999;
             PositionCheck.Result res = PositionCheck.check(row,
-                    GeoCalculations.distanceTo(center, sp), ce);
-            String s = "YOU: " + res.headline() + "\n" + res.guidance();
-            String w = res.boundaryWarning();
-            if (w != null)
-                s += "\n" + w;
-            if (r.isCleared())
-                s = "Zone marked cleared. " + s;
-            youText.setText(s);
-            youText.setTextColor(r.isCleared() ? DIM
-                    : res.zone == PositionCheck.Zone.MANDATORY ? RED
-                            : res.zone == PositionCheck.Zone.SHELTER ? AMBER
-                                    : GREEN);
+                    distance(center, sp), ceKnown ? ce : Double.NaN);
+            if (res == null) {
+                youText.setText("YOU: position check unavailable.");
+                youText.setTextColor(DIM);
+            } else {
+                String s = "YOU: " + res.headline() + "\n" + res.guidance();
+                String w = res.boundaryWarning();
+                if (w != null)
+                    s += "\n" + w;
+                if (ceKnown && ce > row.mandatoryRadiusM())
+                    s += "\nGPS accuracy is poor (about "
+                            + Formats.measured(ce)
+                            + "): treat this check as approximate.";
+                if (r.isCleared())
+                    s = "Incident marked cleared. " + s;
+                youText.setText(s);
+                youText.setTextColor(r.isCleared() ? DIM
+                        : res.zone == PositionCheck.Zone.MANDATORY ? RED
+                                : res.zone == PositionCheck.Zone.SHELTER
+                                        ? AMBER
+                                        : GREEN);
+            }
         }
         if (teamText != null && center != null) {
             List<Double> ds = new ArrayList<>();
@@ -813,7 +840,7 @@ public final class BlastPane {
                         continue;
                     GeoPoint gp = ((PointMapItem) mi).getPoint();
                     if (gp != null && gp.isValid())
-                        ds.add(GeoCalculations.distanceTo(center, gp));
+                        ds.add(distance(center, gp));
                 }
             } catch (RuntimeException e) {
                 Log.w(TAG, "contact scan failed", e);
@@ -835,25 +862,40 @@ public final class BlastPane {
         List<Marker> zones = store.all();
         if (debugLine != null)
             debugLine.setText("Debug: incidents " + store.lastScan());
+        // Read each record once (parsing is not free) and sort on copies.
+        final java.util.Map<String, BlastRecord> recs = new java.util.HashMap<>();
+        final java.util.Map<String, Double> dist = new java.util.HashMap<>();
+        List<Marker> usable = new ArrayList<>();
+        for (Marker m : zones) {
+            BlastRecord r = BlastStore.read(m);
+            if (r == null)
+                continue;
+            recs.put(m.getUID(), r);
+            dist.put(m.getUID(), distance(ref, m));
+            usable.add(m);
+        }
+        zones = usable;
         Collections.sort(zones, new Comparator<Marker>() {
             @Override
             public int compare(Marker a, Marker b) {
                 // Active incidents first, then by distance.
-                boolean ca = isCleared(a), cb = isCleared(b);
+                boolean ca = recs.get(a.getUID()).isCleared();
+                boolean cb = recs.get(b.getUID()).isCleared();
                 if (ca != cb)
                     return ca ? 1 : -1;
-                return Double.compare(distance(ref, a), distance(ref, b));
+                return Double.compare(dist.get(a.getUID()),
+                        dist.get(b.getUID()));
             }
         });
         int cleared = 0;
         StringBuilder sig = new StringBuilder();
         for (Marker m : zones) {
-            boolean c = isCleared(m);
+            boolean c = recs.get(m.getUID()).isCleared();
             if (c)
                 cleared++;
             sig.append(m.getUID()).append(c)
                     .append(ATAKUtilities.getDisplayName(m))
-                    .append(Math.round(distance(ref, m) / 10)).append(';');
+                    .append(Math.round(dist.get(m.getUID()) / 10)).append(';');
         }
         sig.append(selectedZoneUid);
         deleteClearedBtn.setVisibility(cleared > 0 ? View.VISIBLE : View.GONE);
@@ -871,11 +913,9 @@ public final class BlastPane {
             return;
         }
         for (final Marker m : zones) {
-            BlastRecord r = BlastStore.read(m);
-            if (r == null)
-                continue;
+            BlastRecord r = recs.get(m.getUID());
             boolean sel = m.getUID().equals(selectedZoneUid);
-            double d = distance(ref, m);
+            double d = dist.get(m.getUID());
             String where = "";
             if (!Double.isNaN(d)) {
                 where = "\n" + Formats.measured(d);
@@ -941,7 +981,10 @@ public final class BlastPane {
     }
 
     /** Fly to the incident, framing the preferred ring. */
-    private void goTo(Marker m) {
+    private void goTo(Marker card) {
+        Marker m = live(card);
+        if (m == null)
+            return;
         selectedZoneUid = m.getUID();
         listSignature = null;
         cardSignature = null;
@@ -999,10 +1042,15 @@ public final class BlastPane {
     }
 
     private static double distance(GeoPoint ref, Marker m) {
-        GeoPoint p = m.getPoint();
-        if (ref == null || p == null)
+        return distance(ref, m.getPoint());
+    }
+
+    /** WGS84 geodesic distance (core.Geo, tested against GeographicLib). */
+    private static double distance(GeoPoint a, GeoPoint b) {
+        if (a == null || b == null || !a.isValid() || !b.isValid())
             return Double.NaN;
-        return GeoCalculations.distanceTo(ref, p);
+        return Geo.distance(a.getLatitude(), a.getLongitude(),
+                b.getLatitude(), b.getLongitude());
     }
 
     private GeoPoint selfPoint() {
@@ -1021,44 +1069,69 @@ public final class BlastPane {
     // ------------------------------------------------------------------
     // Status and delete
 
-    private void confirmStatus(final Marker m) {
-        final BlastRecord r = BlastStore.read(m);
+    /**
+     * The incident if it is still on the map; otherwise tells the user,
+     * refreshes the pane and returns null.
+     */
+    private Marker live(Marker m) {
+        Marker l = m == null ? null : store.liveMarker(m.getUID());
+        if (l == null) {
+            toast("This incident is no longer on the map.");
+            afterDelete();
+        }
+        return l;
+    }
+
+    private void confirmStatus(Marker card) {
+        final Marker m = live(card);
+        if (m == null)
+            return;
+        BlastRecord r = BlastStore.read(m);
         if (r == null)
             return;
         final boolean clearing = !r.isCleared();
         new AlertDialog.Builder(mapView.getContext())
-                .setTitle(clearing ? "Mark zone cleared?" : "Reopen zone?")
+                .setTitle(clearing ? "Mark incident cleared?"
+                        : "Reopen incident?")
                 .setMessage(clearing
                         ? "Records your callsign and the time. The rings "
                                 + "turn grey and stay on the map until deleted."
-                        : "Sets the zone back to active with the original "
-                                + "distances.")
+                        : "Sets the incident back to active with the "
+                                + "original distances.")
                 .setPositiveButton(clearing ? "Clear and send to all"
                         : "Reopen and send to all",
                         new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface d, int w) {
-                                setStatus(m, r, clearing, true);
+                                setStatus(m, clearing, true);
                             }
                         })
                 .setNeutralButton("This device only",
                         new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface d, int w) {
-                                setStatus(m, r, clearing, false);
+                                setStatus(m, clearing, false);
                             }
                         })
                 .setNegativeButton("Cancel", null)
                 .show();
     }
 
-    private void setStatus(Marker m, BlastRecord r, boolean clearing,
-            boolean send) {
+    private void setStatus(Marker card, boolean clearing, boolean send) {
         try {
+            // Re-check and re-read now: the dialog may have been open while
+            // the incident was deleted or updated by someone else.
+            Marker m = live(card);
+            BlastRecord r = m == null ? null : BlastStore.read(m);
+            if (r == null)
+                return;
             BlastRecord next = clearing
                     ? r.cleared(callsign(), System.currentTimeMillis())
                     : r.reopened();
-            store.write(m, next);
+            if (!store.write(m, next)) {
+                live(null);
+                return;
+            }
             if (send)
                 sharing.sendToAll(m);
             cardSignature = null;
@@ -1066,11 +1139,14 @@ public final class BlastPane {
             refresh();
         } catch (RuntimeException e) {
             Log.e(TAG, "status change failed", e);
-            toast("Could not update the zone.");
+            toast("Could not update the incident.");
         }
     }
 
-    private void confirmDelete(final Marker m) {
+    private void confirmDelete(Marker card) {
+        final Marker m = live(card);
+        if (m == null)
+            return;
         final String name = ATAKUtilities.getDisplayName(m);
         new AlertDialog.Builder(mapView.getContext())
                 .setTitle("Delete " + name + "?")
@@ -1083,7 +1159,8 @@ public final class BlastPane {
                             @Override
                             public void onClick(DialogInterface d, int w) {
                                 try {
-                                    sharing.deleteForEveryone(m);
+                                    if (store.liveMarker(m.getUID()) != null)
+                                        sharing.deleteForEveryone(m);
                                 } catch (RuntimeException e) {
                                     Log.e(TAG, "delete failed", e);
                                 }
@@ -1102,7 +1179,10 @@ public final class BlastPane {
                 .show();
     }
 
-    private void promptRename(final Marker m) {
+    private void promptRename(Marker card) {
+        final Marker m = live(card);
+        if (m == null)
+            return;
         final EditText input = new EditText(mapView.getContext());
         input.setSingleLine(true);
         input.setText(Names.base(BlastStore.nameOf(m)));
@@ -1134,10 +1214,17 @@ public final class BlastPane {
                 .show();
     }
 
-    private void doRename(Marker m, String typed, boolean send) {
+    private void doRename(Marker card, String typed, boolean send) {
         try {
-            if (!store.rename(m, typed)) {
+            Marker m = live(card);
+            if (m == null)
+                return;
+            if (Names.sanitize(typed) == null) {
                 toast("Enter a name.");
+                return;
+            }
+            if (!store.rename(m, typed)) {
+                toast("Could not rename the incident.");
                 return;
             }
             if (send)
@@ -1151,7 +1238,10 @@ public final class BlastPane {
         }
     }
 
-    private void promptExport(final Marker m) {
+    private void promptExport(Marker card) {
+        final Marker m = live(card);
+        if (m == null)
+            return;
         final Exporter.Format[] formats = Exporter.Format.values();
         final boolean[] checked = new boolean[formats.length];
         String[] labels = new String[formats.length];
@@ -1180,8 +1270,11 @@ public final class BlastPane {
                 .show();
     }
 
-    private void doExport(Marker m, Exporter.Format[] formats,
+    private void doExport(Marker card, Exporter.Format[] formats,
             boolean[] checked) {
+        Marker m = live(card);
+        if (m == null)
+            return;
         StringBuilder done = new StringBuilder();
         StringBuilder failed = new StringBuilder();
         for (int i = 0; i < formats.length; i++) {
@@ -1233,7 +1326,8 @@ public final class BlastPane {
                             public void onClick(DialogInterface d, int w) {
                                 for (Marker m : cleared) {
                                     try {
-                                        sharing.deleteForEveryone(m);
+                                        if (store.liveMarker(m.getUID()) != null)
+                                            sharing.deleteForEveryone(m);
                                     } catch (RuntimeException e) {
                                         Log.e(TAG, "delete failed", e);
                                     }

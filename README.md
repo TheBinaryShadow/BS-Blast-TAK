@@ -37,6 +37,9 @@ or department procedures.
 _________________________________________________________________
 STATUS
 
+0.9 (Oct 2026): fixes an ATAK crash when opening the radial menu on a
+marker (regression in 0.7/0.8: ATAK's radial renderer needs the legacy
+WidgetIcon type for the Blast button).
 0.8 (Oct 2026): no threat is pre-selected; the user chooses the threat
 for every incident (on opening the pane and after each placement).
 0.7 (Oct 2026): pre-release audit (see docs/AUDIT.md). Stale cards can no

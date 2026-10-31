@@ -4,7 +4,7 @@
 
 #show: userguide.with(
    plugin-name: "Blast",
-   plugin-version: "0.8",
+   plugin-version: "0.9",
    platform: "ATAK",
    platform-version: "5.6.0",
 )

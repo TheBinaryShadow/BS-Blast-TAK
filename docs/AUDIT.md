@@ -49,6 +49,15 @@ robustness, hygiene, maintainability.
 | L9 | Low | Received details weren't mirrored into ATAK's opaque store, so they'd be lost if Blast were later uninstalled. | `BlastStore.store()` used on create and receive. | Code review |
 | L10 | Low | Dead code (`markerName`, `blast.sentAll`, unused fields), "zone" vs "incident" wording, disclaimer without ERG2024, catch-all `Exception`, non-final plugin class. | Removed / unified / narrowed / `final`. | SpotBugs, lint |
 
+## Found after the audit (device testing)
+
+| ID | Sev | Finding | Fix | Test |
+|---|---|---|---|---|
+| P1 | Critical | M6 replaced the radial button's `WidgetIcon` with `gov.tak` `Icon.Builder`. ATAK's renderer (`GLMapMenuButtonWidget.onButtonIconChanged`, 5.5/5.6) reads the icon through `AbstractButtonWidget.getIcon()`, which returns null for anything but a `WidgetIcon`, so opening a radial menu on any eligible marker crashed ATAK (NPE on ATAK's side, not catchable by the plugin). Found in a device bug report (0.8 release, 31 Oct 2026). The audit checked the setter, not the renderer's getter. | 0.9: legacy `WidgetIcon.Builder` with `Base64MapDataRef`; button skipped if `getIcon()` is null. Deprecation accepted until ATAK's renderer changes. | Device checklist 9; renderer bytecode checked (`javap`) |
+
+Lesson: for every deprecated ATAK API replaced, check ATAK's own
+consumers of the value (renderers, GL classes), not only the setter.
+
 ## ATAK behaviour verified in source
 
 | Assumption | Where checked | Result |
@@ -59,7 +68,7 @@ robustness, hygiene, maintainability.
 | Incident markers don't expire | `CotEventFactory` (marker stale 1 year), `CotMarkerRefresher` (markers only, a-u only with expireUnknowns) | New a-h-G markers never auto-expire; rings aren't markers |
 | Non-Blast renames keep the detail | `MarkerImporter` updates in place; `OpaqueHandler` keeps/re-emits unknown details | Yes |
 | Duplicate listeners | `EventSet.addListenerImpl` | Duplicates kept → M1 |
-| Radial icon API change is equivalent | `AbstractButtonWidget.setIcon` → `setWidgetIcon` | Identical path |
+| Radial icon API change is equivalent | `AbstractButtonWidget.setIcon` → `setWidgetIcon` | **Wrong** (setter only checked): see P1 |
 
 ## Accepted (by design, documented)
 
@@ -67,6 +76,8 @@ robustness, hygiene, maintainability.
   show "BLAST 4"; UIDs differ, nothing merges. Rename fixes the label.
 - **Non-Blast clients:** deleting only the marker in plain ATAK leaves the
   rings (ATAK re-centres them); Blast clients remove the whole incident.
+- **`WidgetIcon`** (deprecated for removal) is still used for the radial
+  button, because ATAK's radial renderer requires it (P1).
 - **`MapView.inverseWithElevation`** is deprecated but not for removal
   (`forRemoval=false`); ATAK's own `Tool.findPoint` uses it.
 - **Lint (22 warnings, 0 errors):** 17 SetTextI18n (English-only UI by

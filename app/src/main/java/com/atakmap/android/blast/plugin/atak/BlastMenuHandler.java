@@ -5,25 +5,34 @@ import android.content.Intent;
 
 import com.atakmap.android.ipc.AtakBroadcast;
 import com.atakmap.android.maps.Base64MapDataRef;
+import com.atakmap.android.maps.MapDataRef;
 import com.atakmap.android.maps.MapItem;
 import com.atakmap.android.maps.Marker;
 import com.atakmap.android.menu.MapMenuButtonWidget;
 import com.atakmap.android.menu.MapMenuHandler;
 import com.atakmap.android.menu.MapMenuReceiver;
 import com.atakmap.android.menu.MapMenuWidget;
+import com.atakmap.android.widgets.WidgetIcon;
 import com.atakmap.coremap.log.Log;
 
-import gov.tak.api.commons.graphics.IIcon;
 import gov.tak.api.widgets.IMapMenuButtonWidget;
 import gov.tak.api.widgets.IMapWidget;
-import gov.tak.platform.commons.graphics.Icon;
 
 /**
  * Adds a "Blast" button to the radial menu:
  * on a zone marker or ring it opens that zone; on any other marker it opens
  * the threat picker to place a zone on that marker's position.
  * Added by a handler (not a menu factory) so ATAK's own buttons stay.
+ *
+ * The icon must be a legacy {@link WidgetIcon}. ATAK's radial renderer
+ * (GLMapMenuButtonWidget.onButtonIconChanged, 5.5/5.6) reads it through
+ * AbstractButtonWidget.getIcon(), which returns null for any other IIcon,
+ * and then crashes ATAK on the GL side where the plugin can't catch it.
+ * 0.7/0.8 used gov.tak Icon.Builder here and crashed ATAK whenever a
+ * radial menu opened on a marker. Keep WidgetIcon until ATAK's renderer
+ * stops depending on it.
  */
+@SuppressWarnings({ "deprecation", "removal" })
 public final class BlastMenuHandler implements MapMenuHandler {
 
     private static final String TAG = "BlastMenuHandler";
@@ -41,14 +50,14 @@ public final class BlastMenuHandler implements MapMenuHandler {
      * The icon as base64 data. ATAK loads android.resource:// icons through
      * its own Resources, so a plugin resource ID draws nothing there.
      */
-    private final String iconUri;
+    private final MapDataRef iconRef;
     private final BlastStore store;
     private final Listener listener;
 
     public BlastMenuHandler(Context atakContext, Context pluginContext,
             int iconRes, BlastStore store, Listener listener) {
         this.atakContext = atakContext;
-        this.iconUri = loadIcon(pluginContext, iconRes);
+        this.iconRef = loadIcon(pluginContext, iconRes);
         this.store = store;
         this.listener = listener;
     }
@@ -88,21 +97,26 @@ public final class BlastMenuHandler implements MapMenuHandler {
                 b.setButtonSize(f.getButtonSpan(), f.getButtonWidth());
                 b.setOrientation(f.getOrientationAngle(),
                         f.getOrientationRadius());
-                IIcon fi = f.getWidgetIcon();
-                if (fi != null && fi.getWidth() > 0 && fi.getHeight() > 0) {
+                WidgetIcon fi = f.getIcon();
+                if (fi != null && fi.getIconWidth() > 0
+                        && fi.getIconHeight() > 0) {
                     ax = fi.getAnchorX();
                     ay = fi.getAnchorY();
-                    iw = fi.getWidth();
-                    ih = fi.getHeight();
+                    iw = fi.getIconWidth();
+                    ih = fi.getIconHeight();
                 }
             }
-            if (iconUri == null)
+            if (iconRef == null)
                 return;
-            b.setWidgetIcon(new Icon.Builder()
-                    .setImageUri(IIcon.STATE_DEFAULT, iconUri)
+            WidgetIcon icon = new WidgetIcon.Builder()
+                    .setImageRef(0, iconRef)
                     .setAnchor(ax, ay)
                     .setSize(iw, ih)
-                    .build());
+                    .build();
+            b.setIcon(icon);
+            // Never add a button the renderer can't draw.
+            if (b.getIcon() == null)
+                return;
             b.setOnButtonClickHandler(
                     new IMapMenuButtonWidget.OnButtonClickHandler() {
                         @Override
@@ -126,8 +140,8 @@ public final class BlastMenuHandler implements MapMenuHandler {
         }
     }
 
-    /** The icon as a base64:// URI, or null. */
-    private static String loadIcon(Context ctx, int res) {
+    /** The icon as base64 map data, or null. */
+    private static MapDataRef loadIcon(Context ctx, int res) {
         try (java.io.InputStream in = ctx.getResources().openRawResource(res)) {
             java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream();
             byte[] buf = new byte[4096];
@@ -136,7 +150,7 @@ public final class BlastMenuHandler implements MapMenuHandler {
                 bo.write(buf, 0, n);
             String data = android.util.Base64.encodeToString(bo.toByteArray(),
                     android.util.Base64.URL_SAFE | android.util.Base64.NO_WRAP);
-            return Base64MapDataRef.toUri(data);
+            return new Base64MapDataRef(data);
         } catch (java.io.IOException | RuntimeException e) {
             Log.e(TAG, "radial icon unavailable", e);
             return null;

@@ -29,6 +29,8 @@ import android.widget.Toast;
 
 import com.atakmap.android.blast.plugin.R;
 import com.atakmap.android.blast.plugin.atak.BlastStore;
+import com.atakmap.android.blast.plugin.atak.Exporter;
+import com.atakmap.android.blast.plugin.core.Names;
 import com.atakmap.android.blast.plugin.atak.Sharing;
 import com.atakmap.android.blast.plugin.core.BlastRecord;
 import com.atakmap.android.blast.plugin.core.Formats;
@@ -91,6 +93,7 @@ public final class BlastPane {
     private final MapView mapView;
     private final BlastStore store;
     private final Sharing sharing;
+    private final Exporter exporter;
     private final SharedPreferences prefs;
     private final StandoffTable table = StandoffTable.current();
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -145,6 +148,7 @@ public final class BlastPane {
         this.mapView = mapView;
         this.store = store;
         this.sharing = sharing;
+        this.exporter = new Exporter(store);
         this.prefs = PreferenceManager.getDefaultSharedPreferences(
                 mapView.getContext());
         this.root = new ScrollView(plugin);
@@ -724,6 +728,25 @@ public final class BlastPane {
         a1.addView(fly, weight());
         card.addView(a1);
 
+        LinearLayout aRename = horizontal();
+        Button ren = button("Rename…", BTN);
+        ren.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                promptRename(m);
+            }
+        });
+        Button exp = button("Export…", BTN);
+        exp.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                promptExport(m);
+            }
+        });
+        aRename.addView(ren, weight());
+        aRename.addView(exp, weight());
+        card.addView(aRename);
+
         LinearLayout a2 = horizontal();
         Button clear = button(r.isCleared() ? "Reopen" : "Mark cleared", BTN);
         clear.setOnClickListener(new View.OnClickListener() {
@@ -1076,6 +1099,116 @@ public final class BlastPane {
                             }
                         })
                 .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void promptRename(final Marker m) {
+        final EditText input = new EditText(mapView.getContext());
+        input.setSingleLine(true);
+        input.setText(Names.base(BlastStore.nameOf(m)));
+        input.setSelectAllOnFocus(true);
+        input.setFilters(new android.text.InputFilter[] {
+                new android.text.InputFilter.LengthFilter(Names.MAX_LENGTH)
+        });
+        new AlertDialog.Builder(mapView.getContext())
+                .setTitle("Rename incident")
+                .setMessage("The name is the marker's callsign, so every TAK "
+                        + "client shows it. CLEARED is added automatically "
+                        + "while the incident is cleared.")
+                .setView(input)
+                .setPositiveButton("Rename and send to all",
+                        new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface d, int w) {
+                                doRename(m, input.getText().toString(), true);
+                            }
+                        })
+                .setNeutralButton("This device only",
+                        new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface d, int w) {
+                                doRename(m, input.getText().toString(), false);
+                            }
+                        })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void doRename(Marker m, String typed, boolean send) {
+        try {
+            if (!store.rename(m, typed)) {
+                toast("Enter a name.");
+                return;
+            }
+            if (send)
+                sharing.sendToAll(m);
+            cardSignature = null;
+            listSignature = null;
+            refresh();
+        } catch (RuntimeException e) {
+            Log.e(TAG, "rename failed", e);
+            toast("Could not rename the incident.");
+        }
+    }
+
+    private void promptExport(final Marker m) {
+        final Exporter.Format[] formats = Exporter.Format.values();
+        final boolean[] checked = new boolean[formats.length];
+        String[] labels = new String[formats.length];
+        for (int i = 0; i < formats.length; i++) {
+            labels[i] = formats[i].label;
+            checked[i] = true;
+        }
+        new AlertDialog.Builder(mapView.getContext())
+                .setTitle("Export " + BlastStore.nameOf(m))
+                .setMultiChoiceItems(labels, checked,
+                        new DialogInterface.OnMultiChoiceClickListener() {
+                            @Override
+                            public void onClick(DialogInterface d, int i,
+                                    boolean on) {
+                                checked[i] = on;
+                            }
+                        })
+                .setPositiveButton("Save",
+                        new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface d, int w) {
+                                doExport(m, formats, checked);
+                            }
+                        })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void doExport(Marker m, Exporter.Format[] formats,
+            boolean[] checked) {
+        StringBuilder done = new StringBuilder();
+        StringBuilder failed = new StringBuilder();
+        for (int i = 0; i < formats.length; i++) {
+            if (!checked[i])
+                continue;
+            try {
+                java.io.File f = exporter.export(m, formats[i]);
+                done.append("\n• ").append(f.getName());
+            } catch (Exception e) {
+                Log.e(TAG, "export failed: " + formats[i], e);
+                failed.append("\n• ").append(formats[i].label);
+            }
+        }
+        if (done.length() == 0 && failed.length() == 0)
+            return;
+        String msg = "";
+        if (done.length() > 0)
+            msg += "Saved in atak/export/Blast:" + done
+                    + "\n\nImport a data package with ATAK's Import "
+                    + "Manager or send it as a file; copy the KMZ to Google "
+                    + "Earth and the GPX to a Garmin's GPX folder.";
+        if (failed.length() > 0)
+            msg += (msg.isEmpty() ? "" : "\n\n") + "Could not save:" + failed;
+        new AlertDialog.Builder(mapView.getContext())
+                .setTitle("Export")
+                .setMessage(msg)
+                .setPositiveButton("OK", null)
                 .show();
     }
 

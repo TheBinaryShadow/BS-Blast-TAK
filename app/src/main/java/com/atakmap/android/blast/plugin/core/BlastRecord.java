@@ -41,6 +41,12 @@ public final class BlastRecord {
     public final long clearedMillis;
     /** Attributes this version doesn't know; kept and re-emitted. */
     public final Map<String, String> extra;
+    /**
+     * Incident number (BLAST n), or 0 if unknown (0.1-0.5 records). Kept
+     * here so numbering survives renames, including by clients without
+     * Blast.
+     */
+    public final int number;
 
     public BlastRecord(int version, String sourceId, String edition,
             String rowId, String rowLabel, int capacityLb, int mandatoryFt,
@@ -48,6 +54,19 @@ public final class BlastRecord {
             ZoneCalculator.MassUnit requestedUnit, String byCallsign,
             long timeMillis, Status status, String clearedBy,
             long clearedMillis, Map<String, String> extra) {
+        this(version, sourceId, edition, rowId, rowLabel, capacityLb,
+                mandatoryFt, shelterToFt, preferredFt, requestedValue,
+                requestedUnit, byCallsign, timeMillis, status, clearedBy,
+                clearedMillis, extra, 0);
+    }
+
+    public BlastRecord(int version, String sourceId, String edition,
+            String rowId, String rowLabel, int capacityLb, int mandatoryFt,
+            int shelterToFt, int preferredFt, double requestedValue,
+            ZoneCalculator.MassUnit requestedUnit, String byCallsign,
+            long timeMillis, Status status, String clearedBy,
+            long clearedMillis, Map<String, String> extra, int number) {
+        this.number = Math.max(0, number);
         this.version = version;
         this.sourceId = sourceId;
         this.edition = edition;
@@ -85,6 +104,13 @@ public final class BlastRecord {
                 -1, null);
     }
 
+    public BlastRecord withNumber(int n) {
+        return new BlastRecord(version, sourceId, edition, rowId, rowLabel,
+                capacityLb, mandatoryFt, shelterToFt, preferredFt,
+                requestedValue, requestedUnit, byCallsign, timeMillis, status,
+                clearedBy, clearedMillis, extra, n);
+    }
+
     public boolean hasRequest() {
         return !Double.isNaN(requestedValue);
     }
@@ -97,14 +123,14 @@ public final class BlastRecord {
         return new BlastRecord(version, sourceId, edition, rowId, rowLabel,
                 capacityLb, mandatoryFt, shelterToFt, preferredFt,
                 requestedValue, requestedUnit, byCallsign, timeMillis,
-                Status.CLEARED, by, when, extra);
+                Status.CLEARED, by, when, extra, number);
     }
 
     public BlastRecord reopened() {
         return new BlastRecord(version, sourceId, edition, rowId, rowLabel,
                 capacityLb, mandatoryFt, shelterToFt, preferredFt,
                 requestedValue, requestedUnit, byCallsign, timeMillis,
-                Status.ACTIVE, "", -1, extra);
+                Status.ACTIVE, "", -1, extra, number);
     }
 
     /**

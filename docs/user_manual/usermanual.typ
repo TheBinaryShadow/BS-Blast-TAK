@@ -4,7 +4,7 @@
 
 #show: userguide.with(
    plugin-name: "Blast",
-   plugin-version: "0.5",
+   plugin-version: "0.6",
    platform: "ATAK",
    platform-version: "5.6.0",
 )
@@ -39,7 +39,7 @@ Tap an incident in the list to open its card:
 - *YOU:* your distance from the device (in miles and km beyond 10,000 ft), the zone you are in, and what the card says to do. If your GPS error could put you on the closer side of a boundary, Blast says so: move farther.
 - *Team:* how many contacts on the map are in each zone.
 - *Provenance:* source, edition, row, your estimate (if any), who placed it and when (Zulu), and who cleared it.
-- *Mark cleared / Reopen*, *Delete…* (this device or everyone), *Fly to*.
+- *Rename…*, *Export…*, *Mark cleared / Reopen*, *Delete…* (this device or everyone), *Fly to*.
 ]
 
 #tak-slide[
@@ -47,6 +47,11 @@ Tap an incident in the list to open its card:
 Blast never scales the card down. An estimate uses the *next row at or above it*, and the pane says which row it used: an 800 lb estimate uses the SUV/Van row (1,000 lb). Kilograms are converted to pounds first (300 kg = 661.4 lb → SUV/Van).
 
 Above 60,000 lb (the Semi-Trailer row) the card publishes no distance, so Blast draws nothing and says so. Get expert guidance; distances will be greater than the Semi-Trailer row (9,300 ft+).
+
+= Rename and export
+- *Rename…* changes the incident's name, which is the marker's callsign, so every TAK client shows it. New incidents are named *BLAST n threat*; a renamed incident keeps its number for numbering. Choose *Rename and send to all* to update everyone.
+- Anyone can also rename the marker in plain ATAK, with or without Blast; Blast keeps that name and only adds or removes *CLEARED*.
+- *Export…* saves the incident to `atak/export/Blast/` as a *data package* (.zip: marker and both rings, for ATAK, WinTAK and iTAK), *KMZ* (Google Earth) and/or *GPX* (Garmin: a waypoint plus the two rings as tracks). In KMZ and GPX the rings are 72-sided outlines drawn just outside the true circle, so they are never smaller than the doctrine distance.
 
 = Sharing, clearing and deleting
 - *SEND TO ALL* sends the marker first and then both rings, so receivers can anchor the rings to it. Moving the marker moves the rings.

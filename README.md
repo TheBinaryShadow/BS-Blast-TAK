@@ -25,6 +25,8 @@ Prevention and FBI Counter-IED Unit, edition "As of Aug 2025"):
   placed it and when) in the marker remarks and in a <__blast> CoT detail
 - Send to everyone, send to selected contacts, mark cleared (logged by
   callsign and Zulu time), delete locally or for everyone
+- Rename an incident; export it as an ATAK data package, KMZ (Google
+  Earth) or GPX (Garmin) to atak/export/Blast/
 
 Feet are the card's own unit; metres are those published for the same
 table in ERG2024 p. 367 (High Explosives, TNT equivalent). Rings are drawn
@@ -35,6 +37,9 @@ or department procedures.
 _________________________________________________________________
 STATUS
 
+0.6 (Oct 2026): Rename (name = callsign; survives renames by clients
+without Blast; number stored in the detail), Export per incident as data
+package, KMZ and GPX.
 0.5 (Oct 2026): a deleted incident's card now clears from "Selected
 incident".
 0.4 (Oct 2026): a deleted incident no longer stays selected; incident list
@@ -95,7 +100,8 @@ DEVELOPER NOTES
 - CoT detail:
   <__blast v="1" src="CISA-BTSOC" ed="2025-08" row="SUV_VAN" lbl="SUV/Van"
    cap_lb="1000" mand_ft="400" sip_ft="2399" pref_ft="2400" req="800"
-   req_u="lb" by="CALLSIGN" t="..." st="ACTIVE|CLEARED" cby="" ct=""/>
+   req_u="lb" by="CALLSIGN" t="..." st="ACTIVE|CLEARED" cby="" ct=""
+   n="2"/>   (n = incident number, 0.6+)
   Unknown attributes are kept and re-sent.
 
 _________________________________________________________________

@@ -24,7 +24,7 @@ public final class BlastCodec {
 
     static final String[] KNOWN = {
             "v", "src", "ed", "row", "lbl", "cap_lb", "mand_ft", "sip_ft",
-            "pref_ft", "req", "req_u", "by", "t", "st", "cby", "ct"
+            "pref_ft", "req", "req_u", "by", "t", "st", "cby", "ct", "n"
     };
 
     /** Longest text value kept from received data. */
@@ -44,6 +44,8 @@ public final class BlastCodec {
         m.put("mand_ft", Integer.toString(r.mandatoryFt));
         m.put("sip_ft", Integer.toString(r.shelterToFt));
         m.put("pref_ft", Integer.toString(r.preferredFt));
+        if (r.number > 0)
+            m.put("n", Integer.toString(r.number));
         if (r.hasRequest()) {
             m.put("req", plain(r.requestedValue));
             m.put("req_u", r.requestedUnit.symbol);
@@ -125,7 +127,8 @@ public final class BlastCodec {
                 req, ZoneCalculator.MassUnit.parse(a.get("req_u")),
                 text(a.get("by")), Formats.parseIso(a.get("t")),
                 BlastRecord.Status.parse(a.get("st")), text(a.get("cby")),
-                Formats.parseIso(a.get("ct")), extra);
+                Formats.parseIso(a.get("ct")), extra,
+                parseInt(a.get("n"), 0));
     }
 
     // ------------------------------------------------------------------

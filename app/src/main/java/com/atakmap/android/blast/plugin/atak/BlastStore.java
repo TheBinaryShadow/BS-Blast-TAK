@@ -7,6 +7,7 @@ import com.atakmap.android.blast.plugin.core.BlastCodec;
 import com.atakmap.android.blast.plugin.core.BlastRecord;
 import com.atakmap.android.blast.plugin.core.StandoffRow;
 import com.atakmap.android.blast.plugin.core.Labels;
+import com.atakmap.android.blast.plugin.core.Names;
 import com.atakmap.android.drawing.DrawingToolsMapComponent;
 import com.atakmap.android.drawing.mapItems.DrawingCircle;
 import com.atakmap.android.maps.MapGroup;
@@ -21,8 +22,6 @@ import com.atakmap.coremap.maps.coords.GeoPoint;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import gov.tak.api.util.AttributeSet;
 
@@ -64,7 +63,6 @@ public final class BlastStore {
     static final int GREY = 0xFF9E9E9E;
     static final int GREY_FILL = 0x149E9E9E;
 
-    private static final Pattern NUMBER = Pattern.compile("^BLAST (\\d+)\\b");
 
     private final MapView mapView;
     private final android.content.SharedPreferences prefs;
@@ -284,19 +282,22 @@ public final class BlastStore {
         return n[0];
     }
 
-    /** "BLAST 3 ..." → 3, else 0. */
+    /** The incident's name (its callsign). */
+    public static String nameOf(Marker m) {
+        String cs = m.getMetaString("callsign", null);
+        if (cs == null || cs.isEmpty())
+            cs = m.getTitle();
+        return cs == null ? "" : cs;
+    }
+
+    /**
+     * Incident number: the one stored in the detail (survives renames),
+     * else the "BLAST n" at the start of the name (0.1-0.5 incidents).
+     */
     public static int numberOf(Marker m) {
-        String cs = m.getMetaString("callsign", m.getTitle());
-        if (cs == null)
-            return 0;
-        Matcher mt = NUMBER.matcher(cs);
-        if (mt.find()) {
-            try {
-                return Integer.parseInt(mt.group(1));
-            } catch (NumberFormatException ignored) {
-            }
-        }
-        return 0;
+        BlastRecord r = read(m);
+        int stored = r != null ? r.number : 0;
+        return Math.max(stored, Names.numberIn(nameOf(m)));
     }
 
     public int nextNumber() {
@@ -312,7 +313,8 @@ public final class BlastStore {
     /** Place a new zone; returns its marker. */
     public Marker create(GeoPoint at, BlastRecord r) {
         int number = nextNumber();
-        String name = Labels.markerName(number, r);
+        r = r.withNumber(number);
+        String name = Names.initial(number, r.rowLabel);
         String uid = UUID.randomUUID().toString();
         Marker m = new PlacePointTool.MarkerCreator(at)
                 .setUid(uid)
@@ -346,15 +348,44 @@ public final class BlastStore {
         } catch (RuntimeException e) {
             Log.w(TAG, "opaque mirror failed", e);
         }
-        int number = numberOf(m);
-        if (number > 0) {
-            String name = Labels.markerName(number, r);
-            m.setMetaString("callsign", name);
-            m.setTitle(name);
-        }
+        // The name is the callsign, which anyone can change (with or
+        // without Blast). Only the CLEARED suffix follows the status here.
+        String current = nameOf(m);
+        String wanted = Names.withStatus(current.isEmpty()
+                ? Names.initial(Math.max(1, r.number), r.rowLabel) : current,
+                r.isCleared());
+        if (!wanted.equals(current))
+            setName(m, wanted);
         m.setMetaString("remarks", Labels.remarks(r));
         ensureRings(m, r);
         m.persist(mapView.getMapEventDispatcher(), null, BlastStore.class);
+    }
+
+    private static void setName(Marker m, String name) {
+        m.setMetaString("callsign", name);
+        m.setTitle(name);
+    }
+
+    /**
+     * Rename an incident. Returns false if the name is empty after
+     * cleaning. The CLEARED suffix is kept or added to match the status.
+     */
+    public boolean rename(Marker m, String typed) {
+        String clean = Names.sanitize(typed);
+        BlastRecord r = read(m);
+        if (clean == null || r == null)
+            return false;
+        // Record the number in the detail before the old name (which may
+        // hold it, e.g. "BLAST 3 ...") is replaced, so the incident still
+        // counts for numbering after the rename.
+        if (r.number == 0) {
+            int n = numberOf(m);
+            if (n > 0)
+                r = r.withNumber(n);
+        }
+        setName(m, Names.withStatus(clean, r.isCleared()));
+        write(m, r);
+        return true;
     }
 
     /** Create missing rings and restyle existing ones. */

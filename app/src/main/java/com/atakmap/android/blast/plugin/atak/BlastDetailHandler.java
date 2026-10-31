@@ -82,6 +82,7 @@ public final class BlastDetailHandler extends CotDetailHandler {
             item.setMetaString(BlastStore.META, xml);
             item.setMetaBoolean(BlastStore.META_FLAG, true);
             final String uid = item.getUID();
+            store.register(uid);
             main.postDelayed(new Runnable() {
                 @Override
                 public void run() {
@@ -97,11 +98,10 @@ public final class BlastDetailHandler extends CotDetailHandler {
 
     private void afterImport(String uid) {
         try {
-            MapItem mi = mapView.getMapItem(uid);
-            if (mi instanceof Marker) {
-                BlastRecord r = BlastStore.read(mi);
-                if (r != null)
-                    store.ensureRings((Marker) mi, r);
+            Marker m = store.liveMarker(uid);
+            if (m != null) {
+                store.register(uid);
+                store.ensureRings(m, BlastStore.read(m));
             }
             if (onChange != null)
                 onChange.run();

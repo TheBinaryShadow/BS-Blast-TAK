@@ -107,6 +107,8 @@ public final class BlastPane {
     private LinearLayout zoneList;
     private TextView zoneListHeader;
     private Button deleteClearedBtn;
+    /** Debug builds only: what the incident lookup found. */
+    private TextView debugLine;
 
     private String selectedRowId;
     private boolean customMode;
@@ -389,6 +391,10 @@ public final class BlastPane {
                 });
         col.addView(auto);
 
+        if (com.atakmap.android.blast.plugin.BuildConfig.DEBUG) {
+            debugLine = text("", 10, DIM, false);
+            col.addView(debugLine);
+        }
         TextView foot = text(Guidance.DISCLAIMER, 11, DIM, false);
         foot.setPadding(0, dp(12), 0, dp(4));
         col.addView(foot);
@@ -593,10 +599,9 @@ public final class BlastPane {
     private Marker selectedZone() {
         if (selectedZoneUid == null)
             return null;
-        MapItem mi = mapView.getMapItem(selectedZoneUid);
-        if (mi instanceof Marker && BlastStore.read(mi) != null)
-            return (Marker) mi;
-        return null;
+        // Not mapView.getMapItem alone: ATAK's UID index can still return
+        // an incident after it was deleted.
+        return store.liveMarker(selectedZoneUid);
     }
 
     private void refreshCard() {
@@ -800,6 +805,8 @@ public final class BlastPane {
     private void refreshList() {
         final GeoPoint ref = referencePoint();
         List<Marker> zones = store.all();
+        if (debugLine != null)
+            debugLine.setText("Debug: incidents " + store.lastScan());
         Collections.sort(zones, new Comparator<Marker>() {
             @Override
             public int compare(Marker a, Marker b) {
@@ -910,7 +917,7 @@ public final class BlastPane {
         selectedZoneUid = m.getUID();
         listSignature = "";
         cardSignature = "";
-        MapItem pref = mapView.getMapItem(m.getUID() + BlastStore.PREF_SUFFIX);
+        MapItem pref = store.liveItem(m.getUID() + BlastStore.PREF_SUFFIX);
         MapTouchController.goTo(pref != null ? pref : m, false);
         refresh();
     }

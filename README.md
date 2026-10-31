@@ -35,6 +35,9 @@ or department procedures.
 _________________________________________________________________
 STATUS
 
+0.4 (Oct 2026): a deleted incident no longer stays selected; incident list
+and numbering no longer depend on a single ATAK lookup (own registry + UID
+index + group walk, only items still on the map count).
 0.3 (Oct 2026): fixes the empty incident list and repeated "BLAST 1"
 numbering, the blank radial button icon, and shows far distances in
 miles/km.

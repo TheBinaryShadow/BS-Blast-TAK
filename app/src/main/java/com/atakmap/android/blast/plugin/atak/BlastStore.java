@@ -67,9 +67,81 @@ public final class BlastStore {
     private static final Pattern NUMBER = Pattern.compile("^BLAST (\\d+)\\b");
 
     private final MapView mapView;
+    private final android.content.SharedPreferences prefs;
+
+    /**
+     * UIDs of every incident this device has created, received or seen.
+     * Persisted, so the list doesn't depend on any one ATAK lookup.
+     */
+    private final java.util.Set<String> registry = java.util.Collections
+            .newSetFromMap(new java.util.concurrent.ConcurrentHashMap<String, Boolean>());
+    private static final String PREF_REGISTRY = "blast.registry";
+
+    /** What the last {@link #all()} found, for the debug line in the pane. */
+    private volatile String lastScan = "";
 
     public BlastStore(MapView mapView) {
         this.mapView = mapView;
+        this.prefs = android.preference.PreferenceManager
+                .getDefaultSharedPreferences(mapView.getContext());
+        try {
+            java.util.Set<String> saved = prefs.getStringSet(PREF_REGISTRY,
+                    null);
+            if (saved != null)
+                registry.addAll(saved);
+        } catch (RuntimeException e) {
+            Log.w(TAG, "registry unreadable", e);
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Liveness and lookup.
+    //
+    // ATAK's UID lookup (MapView.getMapItem -> RootMapGroup.deepFindUID)
+    // uses a UID index that can still return an item after it was removed
+    // from the map. An item is only on the map while it belongs to a group.
+
+    public static boolean isLive(MapItem mi) {
+        return mi != null && mi.getGroup() != null;
+    }
+
+    /** The item with this UID if it is actually on the map, else null. */
+    public MapItem liveItem(String uid) {
+        if (uid == null)
+            return null;
+        MapItem mi = mapView.getMapItem(uid);
+        return isLive(mi) ? mi : null;
+    }
+
+    /** The incident marker with this UID if it is on the map, else null. */
+    public Marker liveMarker(String uid) {
+        MapItem mi = liveItem(uid);
+        if (mi instanceof Marker && read(mi) != null)
+            return (Marker) mi;
+        return null;
+    }
+
+    public void register(String uid) {
+        if (uid != null && registry.add(uid))
+            saveRegistry();
+    }
+
+    private void unregister(String uid) {
+        if (uid != null && registry.remove(uid))
+            saveRegistry();
+    }
+
+    private void saveRegistry() {
+        try {
+            prefs.edit().putStringSet(PREF_REGISTRY,
+                    new java.util.HashSet<>(registry)).apply();
+        } catch (RuntimeException e) {
+            Log.w(TAG, "registry not saved", e);
+        }
+    }
+
+    public String lastScan() {
+        return lastScan;
     }
 
     // ------------------------------------------------------------------
@@ -127,22 +199,39 @@ public final class BlastStore {
                 else if (uid != null && uid.endsWith(PREF_SUFFIX))
                     parent = uid.substring(0, uid.length() - PREF_SUFFIX.length());
             }
-            if (parent != null) {
-                MapItem m = mapView.getMapItem(parent);
-                if (m instanceof Marker && read(m) != null)
-                    return (Marker) m;
-            }
+            if (parent != null)
+                return liveMarker(parent);
         }
         return null;
     }
 
     /**
-     * All zone markers on the map. Scans every item: the flag is a boolean,
-     * and MapGroup.deepFindItems(key, value) only matches string metadata
-     * (0.2 used it and found nothing).
+     * All incident markers on the map, from three sources so no single ATAK
+     * lookup can hide them: the registry, ATAK's UID index
+     * (RootMapGroup.getAllItems) and a walk of the map groups. Only items
+     * that are on the map (in a group) count.
      */
     public List<Marker> all() {
-        final List<Marker> out = new ArrayList<>();
+        final java.util.LinkedHashMap<String, Marker> found =
+                new java.util.LinkedHashMap<>();
+        int fromRegistry = 0, fromIndex = 0, fromWalk = 0;
+        for (String uid : new ArrayList<>(registry)) {
+            Marker m = liveMarker(uid);
+            if (m != null && found.put(m.getUID(), m) == null)
+                fromRegistry++;
+        }
+        try {
+            for (MapItem mi : mapView.getRootGroup().getAllItems()) {
+                if (mi instanceof Marker && isLive(mi)
+                        && (mi.hasMetaValue(META) || mi.hasMetaValue(OPAQUE))
+                        && read(mi) != null
+                        && found.put(mi.getUID(), (Marker) mi) == null)
+                    fromIndex++;
+            }
+        } catch (RuntimeException e) {
+            Log.w(TAG, "index listing failed", e);
+        }
+        final List<Marker> walked = new ArrayList<>();
         try {
             mapView.getRootGroup().deepForEachItem(
                     new MapGroup.MapItemsCallback() {
@@ -152,14 +241,22 @@ public final class BlastStore {
                                     && (item.hasMetaValue(META)
                                             || item.hasMetaValue(OPAQUE))
                                     && read(item) != null)
-                                out.add((Marker) item);
+                                walked.add((Marker) item);
                             return false;
                         }
                     });
         } catch (RuntimeException e) {
-            Log.w(TAG, "zone listing failed", e);
+            Log.w(TAG, "group walk failed", e);
         }
-        return out;
+        for (Marker m : walked)
+            if (found.put(m.getUID(), m) == null)
+                fromWalk++;
+        for (String uid : found.keySet())
+            register(uid);
+        lastScan = "found " + found.size() + " (registry " + fromRegistry
+                + "/" + registry.size() + ", index +" + fromIndex
+                + ", walk +" + fromWalk + ", walk total " + walked.size() + ")";
+        return new ArrayList<>(found.values());
     }
 
     /**
@@ -228,6 +325,7 @@ public final class BlastStore {
                 .placePoint();
         if (m == null)
             return null;
+        register(m.getUID());
         write(m, r);
         return m;
     }
@@ -272,7 +370,9 @@ public final class BlastStore {
 
     private void ring(Marker m, BlastRecord r, boolean mandatory) {
         String uid = m.getUID() + (mandatory ? MAND_SUFFIX : PREF_SUFFIX);
-        MapItem existing = mapView.getMapItem(uid);
+        // A removed ring can linger in ATAK's UID index; only reuse it if it
+        // is still on the map, otherwise draw a fresh one.
+        MapItem existing = liveItem(uid);
         DrawingCircle c;
         boolean added = false;
         if (existing instanceof DrawingCircle) {
@@ -326,10 +426,10 @@ public final class BlastStore {
     public List<MapItem> items(Marker m) {
         List<MapItem> out = new ArrayList<>();
         out.add(m);
-        MapItem pref = mapView.getMapItem(m.getUID() + PREF_SUFFIX);
+        MapItem pref = liveItem(m.getUID() + PREF_SUFFIX);
         if (pref != null)
             out.add(pref);
-        MapItem mand = mapView.getMapItem(m.getUID() + MAND_SUFFIX);
+        MapItem mand = liveItem(m.getUID() + MAND_SUFFIX);
         if (mand != null)
             out.add(mand);
         return out;
@@ -338,7 +438,7 @@ public final class BlastStore {
     /** Remove the rings that belong to a marker UID (local only). */
     public void removeRings(String markerUid) {
         for (String sfx : new String[] { MAND_SUFFIX, PREF_SUFFIX }) {
-            MapItem c = mapView.getMapItem(markerUid + sfx);
+            MapItem c = liveItem(markerUid + sfx);
             if (c != null)
                 c.removeFromGroup();
         }
@@ -353,7 +453,8 @@ public final class BlastStore {
     public void deleteIncident(String markerUid) {
         if (markerUid == null)
             return;
-        MapItem m = mapView.getMapItem(markerUid);
+        unregister(markerUid);
+        MapItem m = liveItem(markerUid);
         if (m != null)
             m.removeFromGroup();
         removeRings(markerUid);
@@ -397,7 +498,7 @@ public final class BlastStore {
             @Override
             public void run() {
                 try {
-                    if (mapView.getMapItem(uid) == null)
+                    if (liveItem(uid) == null)
                         deleteIncident(incidentUid(uid));
                 } catch (RuntimeException e) {
                     Log.e(TAG, "incident cleanup failed for " + uid, e);

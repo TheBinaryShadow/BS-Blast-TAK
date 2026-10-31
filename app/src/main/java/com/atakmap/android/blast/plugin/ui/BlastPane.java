@@ -116,8 +116,13 @@ public final class BlastPane {
     private Selection selection;
     private Marker placeTarget;
     private String selectedZoneUid;
-    private String cardSignature = "";
-    private String listSignature = "";
+    /**
+     * What the card / list currently show; null means "redraw next time".
+     * (0.4 reset these to "", which is also the signature of "no incident",
+     * so a deleted incident's card was never cleared.)
+     */
+    private String cardSignature = null;
+    private String listSignature = null;
     private TextView youText, teamText;
 
     private boolean picking;
@@ -170,8 +175,8 @@ public final class BlastPane {
     // Entry points
 
     public void onShow() {
-        cardSignature = "";
-        listSignature = "";
+        cardSignature = null;
+        listSignature = null;
         refresh();
     }
 
@@ -894,8 +899,8 @@ public final class BlastPane {
                 @Override
                 public void onClick(View v) {
                     selectedZoneUid = m.getUID();
-                    listSignature = "";
-                    cardSignature = "";
+                    listSignature = null;
+                    cardSignature = null;
                     refresh();
                 }
             };
@@ -915,8 +920,8 @@ public final class BlastPane {
     /** Fly to the incident, framing the preferred ring. */
     private void goTo(Marker m) {
         selectedZoneUid = m.getUID();
-        listSignature = "";
-        cardSignature = "";
+        listSignature = null;
+        cardSignature = null;
         MapItem pref = store.liveItem(m.getUID() + BlastStore.PREF_SUFFIX);
         MapTouchController.goTo(pref != null ? pref : m, false);
         refresh();
@@ -1033,8 +1038,8 @@ public final class BlastPane {
             store.write(m, next);
             if (send)
                 sharing.sendToAll(m);
-            cardSignature = "";
-            listSignature = "";
+            cardSignature = null;
+            listSignature = null;
             refresh();
         } catch (RuntimeException e) {
             Log.e(TAG, "status change failed", e);
@@ -1120,8 +1125,8 @@ public final class BlastPane {
         // Keep the selection if a different incident was deleted.
         if (selectedZone() == null)
             selectedZoneUid = null;
-        cardSignature = "";
-        listSignature = "";
+        cardSignature = null;
+        listSignature = null;
         refresh();
     }
 

@@ -35,6 +35,8 @@ or department procedures.
 _________________________________________________________________
 STATUS
 
+0.5 (Oct 2026): a deleted incident's card now clears from "Selected
+incident".
 0.4 (Oct 2026): a deleted incident no longer stays selected; incident list
 and numbering no longer depend on a single ATAK lookup (own registry + UID
 index + group walk, only items still on the map count).

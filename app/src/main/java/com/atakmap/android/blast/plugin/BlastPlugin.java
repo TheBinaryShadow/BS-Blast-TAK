@@ -209,9 +209,14 @@ public final class BlastPlugin implements IPlugin {
                     .setMetaValue(Pane.PREFERRED_HEIGHT_RATIO, 0.6D)
                     .build();
         }
-        controller.onShow();
-        if (!uiService.isPaneVisible(pane))
+        if (!uiService.isPaneVisible(pane)) {
+            // Opening the pane: no threat pre-selected.
+            controller.resetThreat();
+            controller.onShow();
             uiService.showPane(pane, null);
+        } else {
+            controller.onShow();
+        }
         return true;
     }
 }

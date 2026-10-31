@@ -4,7 +4,7 @@
 
 #show: userguide.with(
    plugin-name: "Blast",
-   plugin-version: "0.7",
+   plugin-version: "0.8",
    platform: "ATAK",
    platform-version: "5.6.0",
 )
@@ -21,7 +21,7 @@ The zones are ordinary ATAK circles and a marker, so every TAK client sees them,
 ]
 = Getting started
 - Tap the *Blast* toolbar button. *Incidents on the map* is at the top: every incident with its distance, *Go to* and *Delete*.
-- *New incident, 1. Threat:* tap the card category that matches what you see (Pipe Bomb … Semi-Trailer), or *Custom quantity* to enter an estimate in lb or kg (TNT equivalent).
+- *New incident, 1. Threat:* tap the card category that matches what you see (Pipe Bomb … Semi-Trailer), or *Custom quantity* to enter an estimate in lb or kg (TNT equivalent). Nothing is pre-selected: you choose the threat for every incident, and the placement buttons stay greyed out until you do.
 - *2. Place:* *Tap map* (then tap the map or a marker), *My position*, or *Map center*. From any marker's radial menu, the Blast button opens the pane ready to place a zone on that marker.
 - Press *SEND TO ALL* on the zone card, or *Send to…* to choose contacts. Tick *Send new zones to everyone right away* to send automatically.
 ]

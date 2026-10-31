@@ -37,6 +37,8 @@ or department procedures.
 _________________________________________________________________
 STATUS
 
+0.8 (Oct 2026): no threat is pre-selected; the user chooses the threat
+for every incident (on opening the pane and after each placement).
 0.7 (Oct 2026): pre-release audit (see docs/AUDIT.md). Stale cards can no
 longer resurrect deleted incidents; people's own remarks are kept; known
 editions always draw the table's distances; listener leak fixed; poor-GPS

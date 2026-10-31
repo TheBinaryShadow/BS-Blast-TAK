@@ -76,7 +76,8 @@ public final class BlastPane {
 
     private static final String TAG = "BlastPane";
     private static final String PREF_AUTO_SEND = "blast.autoSend";
-    private static final String PREF_LAST_ROW = "blast.lastRow";
+    /** 0.1-0.7 remembered the last threat; no longer used (removed on start). */
+    private static final String PREF_LAST_ROW_OLD = "blast.lastRow";
     private static final long TICK_MS = 3000;
 
     private static final int BG = 0xFF1E1E1E;
@@ -169,8 +170,10 @@ public final class BlastPane {
                         stopPick();
                     }
                 });
-        String last = prefs.getString(PREF_LAST_ROW, null);
-        selectRow(table.row(last) != null ? last : null);
+        // No threat is pre-selected: the user must choose one for every
+        // incident (a remembered choice could place the wrong size).
+        prefs.edit().remove(PREF_LAST_ROW_OLD).apply();
+        resetThreat();
     }
 
     public View getView() {
@@ -423,8 +426,18 @@ public final class BlastPane {
     private void selectRow(String rowId) {
         customMode = false;
         selectedRowId = rowId;
-        if (rowId != null)
-            prefs.edit().putString(PREF_LAST_ROW, rowId).apply();
+        recomputeSelection();
+    }
+
+    /**
+     * Clear the threat choice. Called when the pane is opened and after
+     * each incident is placed, so every incident needs a fresh choice.
+     */
+    public void resetThreat() {
+        customMode = false;
+        selectedRowId = null;
+        if (qtyEdit != null)
+            qtyEdit.setText("");
         recomputeSelection();
     }
 
@@ -519,7 +532,7 @@ public final class BlastPane {
             }
             placeTarget = null;
             selectedZoneUid = m.getUID();
-            updatePlacement();
+            resetThreat();
             if (prefs.getBoolean(PREF_AUTO_SEND, false)) {
                 sharing.sendToAll(m);
                 toast("Incident placed and sent to everyone.");

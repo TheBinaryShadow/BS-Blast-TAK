@@ -76,8 +76,8 @@ robustness, hygiene, maintainability.
   broadcast), EI/EI2 (constructor injection), SECPTI (see L8), SECXML
   (constant style ids), CT (ATAK instantiates the plugin; class is final),
   UrF on `ErgData` (reserved for the ERG presets, golden-tested), SIC.
-- **Last threat row pre-selected** when the pane opens (highlighted, and
-  the distances are shown before placing).
+- ~~Last threat row pre-selected~~: changed in 0.8 at the user's request.
+  No threat is pre-selected; the user chooses one for every incident.
 
 ## Pipeline dry run
 

@@ -121,6 +121,13 @@ consumers of the value (renderers, GL classes), not only the setter.
    open the GPX on a Garmin (check the "Danger Area" symbol).
 9. Radial button looks and works as in 0.3+.
 
+## 1.0 release (31 Oct 2026)
+
+Device testing on the 0.9 release APK (ATAK 5.5.1 developer build): main
+flows and the radial button (checklist 9) confirmed by the developer.
+Checklist items needing a second device (2, 4, 8 import) and a Garmin
+(8) were left to public testing. 1.0 is 0.9 with the version raised.
+
 ## Release steps (1.0)
 
 `PLUGIN_VERSION = "1.0"`, `takStaticVersion=10000`, manual

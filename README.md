@@ -37,6 +37,8 @@ or department procedures.
 _________________________________________________________________
 STATUS
 
+1.0 (Oct 2026): first public release. Same code as 0.9; see
+docs/AUDIT.md for the pre-release audit.
 0.9 (Oct 2026): fixes an ATAK crash when opening the radial menu on a
 marker (regression in 0.7/0.8: ATAK's radial renderer needs the legacy
 WidgetIcon type for the Blast button).

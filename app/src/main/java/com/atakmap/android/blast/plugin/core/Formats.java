@@ -75,11 +75,33 @@ public final class Formats {
         return ft(ft) + " (" + thousands(cardMetres(ft)) + " m)";
     }
 
-    /** Measured distance, ordinary rounding: "450 ft (137 m)". */
+    /**
+     * Above this, measured distances switch to miles and kilometres. Every
+     * card distance (up to 9,300 ft) stays in feet, so readouts near a zone
+     * compare directly with the rings.
+     */
+    public static final double MILES_ABOVE_FT = 10000;
+
+    /**
+     * Measured distance, ordinary rounding: "450 ft (137 m)", or
+     * "12.2 mi (19.6 km)" beyond {@link #MILES_ABOVE_FT}.
+     */
     public static String measured(double metres) {
-        long ft = Math.round(mToFt(metres));
+        double feet = mToFt(metres);
+        if (feet >= MILES_ABOVE_FT)
+            return decimal(feet / 5280.0) + " mi (" + decimal(metres / 1000.0)
+                    + " km)";
+        long ft = Math.round(feet);
         long m = Math.round(metres);
         return thousands(ft) + " ft (" + thousands(m) + " m)";
+    }
+
+    /** One decimal below 100, whole numbers with separators above. */
+    static String decimal(double v) {
+        if (v >= 100)
+            return thousands(Math.round(v));
+        long tenths = Math.round(v * 10.0);
+        return thousands(tenths / 10) + "." + (tenths % 10);
     }
 
     /**

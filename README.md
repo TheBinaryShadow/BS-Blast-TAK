@@ -35,6 +35,9 @@ or department procedures.
 _________________________________________________________________
 STATUS
 
+0.3 (Oct 2026): fixes the empty incident list and repeated "BLAST 1"
+numbering, the blank radial button icon, and shows far distances in
+miles/km.
 0.2 (Oct 2026): incident list with Go to / Delete, whole-incident delete,
 hostile marker, threat icons, ERG2024 metres, radial button fix.
 0.1 (Oct 2026): first test build, CISA/FBI card only.

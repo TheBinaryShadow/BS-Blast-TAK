@@ -49,6 +49,12 @@ public class FormatsAndLabelsTest {
         assertEquals("661.4", Formats.quantity(661.3868));
         assertEquals("5.1", Formats.quantity(5.0001));
         assertEquals("450 ft (137 m)", Formats.measured(Formats.ftToM(450)));
+        // Card distances stay in feet; far readouts switch to mi/km.
+        assertEquals("9,999 ft (3,048 m)", Formats.measured(Formats.ftToM(9999)));
+        assertEquals("1.9 mi (3.0 km)", Formats.measured(Formats.ftToM(10000)));
+        assertEquals("12.2 mi (19.6 km)", Formats.measured(19577));
+        assertEquals("10.3 mi (16.6 km)", Formats.measured(16626));
+        assertEquals("124 mi (200 km)", Formats.measured(200000));
     }
 
     @Test

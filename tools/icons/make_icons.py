@@ -51,6 +51,19 @@ def burst(size, outline=True):
     return im.resize((size, size), Image.LANCZOS)
 
 
+def burst_glyph(size):
+    """White radial-menu glyph: ATAK tints radial icons, like its own."""
+    s = size * SS
+    im = Image.new("RGBA", (s, s), CLEAR)
+    d = ImageDraw.Draw(im)
+    c = s / 2
+    j = [1.0, 0.86, 0.97, 0.82, 1.0, 0.9, 0.95, 0.84, 0.99, 0.88, 0.93, 0.85]
+    d.polygon(burst_points(c, c, 0.48 * s, 0.29 * s, 12, 0.0, j), fill=WHITE)
+    d.polygon(burst_points(c, c, 0.30 * s, 0.17 * s, 10, 0.3), fill=CLEAR)
+    d.ellipse((c - 0.08 * s, c - 0.08 * s, c + 0.08 * s, c + 0.08 * s), fill=WHITE)
+    return im.resize((size, size), Image.LANCZOS)
+
+
 # ---------------------------------------------------------------------------
 # Threat silhouettes, drawn on a 100 x 100 grid, white on transparent.
 
@@ -180,7 +193,7 @@ def save(img, rel):
 if __name__ == "__main__":
     save(burst(128), "app/src/main/res/drawable/ic_launcher.png")
     save(burst(256), "docs/user_manual/plugin_icon.png")
-    save(burst(64), "app/src/main/res/drawable-nodpi/ic_blast_radial.png")
+    save(burst_glyph(64), "app/src/main/res/drawable-nodpi/ic_blast_radial.png")
     for name, fn in THREATS.items():
         save(fn().resize((96, 96), Image.LANCZOS),
              "app/src/main/res/drawable-nodpi/ic_threat_" + name + ".png")

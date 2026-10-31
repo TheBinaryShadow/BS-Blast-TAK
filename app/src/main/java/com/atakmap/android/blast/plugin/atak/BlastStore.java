@@ -136,14 +136,26 @@ public final class BlastStore {
         return null;
     }
 
-    /** All zone markers on the map. */
+    /**
+     * All zone markers on the map. Scans every item: the flag is a boolean,
+     * and MapGroup.deepFindItems(key, value) only matches string metadata
+     * (0.2 used it and found nothing).
+     */
     public List<Marker> all() {
-        List<Marker> out = new ArrayList<>();
+        final List<Marker> out = new ArrayList<>();
         try {
-            for (MapItem mi : mapView.getRootGroup().deepFindItems(META_FLAG,
-                    "true"))
-                if (mi instanceof Marker && read(mi) != null)
-                    out.add((Marker) mi);
+            mapView.getRootGroup().deepForEachItem(
+                    new MapGroup.MapItemsCallback() {
+                        @Override
+                        public boolean onItemFunction(MapItem item) {
+                            if (item instanceof Marker
+                                    && (item.hasMetaValue(META)
+                                            || item.hasMetaValue(OPAQUE))
+                                    && read(item) != null)
+                                out.add((Marker) item);
+                            return false;
+                        }
+                    });
         } catch (RuntimeException e) {
             Log.w(TAG, "zone listing failed", e);
         }

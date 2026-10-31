@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.graphics.Point;
 
 import com.atakmap.android.ipc.AtakBroadcast;
+import com.atakmap.android.maps.Base64MapDataRef;
 import com.atakmap.android.maps.MapDataRef;
 import com.atakmap.android.maps.MapItem;
 import com.atakmap.android.maps.Marker;
@@ -37,14 +38,18 @@ public final class BlastMenuHandler implements MapMenuHandler {
     }
 
     private final Context atakContext;
-    private final String iconUri;
+    /**
+     * The icon as base64 data. ATAK loads android.resource:// icons through
+     * its own Resources, so a plugin resource ID draws nothing there.
+     */
+    private final MapDataRef iconRef;
     private final BlastStore store;
     private final Listener listener;
 
-    public BlastMenuHandler(Context atakContext, String pluginPackage,
+    public BlastMenuHandler(Context atakContext, Context pluginContext,
             int iconRes, BlastStore store, Listener listener) {
         this.atakContext = atakContext;
-        this.iconUri = "android.resource://" + pluginPackage + "/" + iconRes;
+        this.iconRef = loadIcon(pluginContext, iconRes);
         this.store = store;
         this.listener = listener;
     }
@@ -93,8 +98,9 @@ public final class BlastMenuHandler implements MapMenuHandler {
                     ih = fi.getIconHeight();
                 }
             }
-            b.setIcon(new WidgetIcon(MapDataRef.parseUri(iconUri),
-                    new Point(ax, ay), iw, ih));
+            if (iconRef == null)
+                return;
+            b.setIcon(new WidgetIcon(iconRef, new Point(ax, ay), iw, ih));
             b.setOnButtonClickHandler(
                     new IMapMenuButtonWidget.OnButtonClickHandler() {
                         @Override
@@ -115,6 +121,22 @@ public final class BlastMenuHandler implements MapMenuHandler {
             menu.addWidget(b);
         } catch (RuntimeException e) {
             Log.e(TAG, "could not add radial button", e);
+        }
+    }
+
+    private static MapDataRef loadIcon(Context ctx, int res) {
+        try (java.io.InputStream in = ctx.getResources().openRawResource(res)) {
+            java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[4096];
+            int n;
+            while ((n = in.read(buf)) > 0)
+                bo.write(buf, 0, n);
+            String data = android.util.Base64.encodeToString(bo.toByteArray(),
+                    android.util.Base64.URL_SAFE | android.util.Base64.NO_WRAP);
+            return new Base64MapDataRef(data);
+        } catch (Exception e) {
+            Log.e(TAG, "radial icon unavailable", e);
+            return null;
         }
     }
 

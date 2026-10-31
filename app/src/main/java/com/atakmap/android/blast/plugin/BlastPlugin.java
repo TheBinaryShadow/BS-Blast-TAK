@@ -103,7 +103,7 @@ public class BlastPlugin implements IPlugin {
 
         try {
             menuHandler = new BlastMenuHandler(mapView.getContext(),
-                    pluginContext.getPackageName(), R.drawable.ic_blast_radial,
+                    pluginContext, R.drawable.ic_blast_radial,
                     store, new BlastMenuHandler.Listener() {
                         @Override
                         public void openZone(Marker zone) {

@@ -4,7 +4,7 @@
 
 #show: userguide.with(
    plugin-name: "Blast",
-   plugin-version: "0.1",
+   plugin-version: "0.3",
    platform: "ATAK",
    platform-version: "5.6.0",
 )
@@ -36,7 +36,7 @@ Each incident also gets a hostile marker (red diamond) named *BLAST n* with the 
 = The incident card
 Tap an incident in the list to open its card:
 - The three distances in feet (the card) and metres (as published in ERG2024 p. 367).
-- *YOU:* your distance from the device, the zone you are in, and what the card says to do. If your GPS error could put you on the closer side of a boundary, Blast says so: move farther.
+- *YOU:* your distance from the device (in miles and km beyond 10,000 ft), the zone you are in, and what the card says to do. If your GPS error could put you on the closer side of a boundary, Blast says so: move farther.
 - *Team:* how many contacts on the map are in each zone.
 - *Provenance:* source, edition, row, your estimate (if any), who placed it and when (Zulu), and who cleared it.
 - *Mark cleared / Reopen*, *Delete…* (this device or everyone), *Fly to*.

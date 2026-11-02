@@ -8,6 +8,9 @@ import com.atakmap.android.blast.plugin.core.BlastRecord;
 import com.atakmap.android.blast.plugin.core.StandoffRow;
 import com.atakmap.android.blast.plugin.core.Labels;
 import com.atakmap.android.blast.plugin.core.Names;
+import com.atakmap.android.blast.plugin.core.UxoCodec;
+import com.atakmap.android.blast.plugin.core.UxoRecord;
+import com.atakmap.android.blast.plugin.core.UxoText;
 import com.atakmap.android.drawing.DrawingToolsMapComponent;
 import com.atakmap.android.drawing.mapItems.DrawingCircle;
 import com.atakmap.android.maps.MapGroup;
@@ -34,6 +37,8 @@ import gov.tak.api.util.AttributeSet;
  * <li>{@code <uid>.pref} — preferred evacuation line (green), amber fill
  * for the shelter-in-place band inside it</li>
  * </ul>
+ * A UXO incident (1.1+) is the same kind of marker carrying the
+ * {@code __blast_uxo} detail and one circle, {@code <uid>.cordon} (orange).
  * Ring UIDs are derived from the marker UID, so every client agrees on them
  * and updates merge. The rings are anchored to the marker (CoT
  * {@code p-p-CenterAnchor}), so moving the marker moves them everywhere.
@@ -44,7 +49,9 @@ public final class BlastStore {
 
     /** Marker metadata: the record as {@code <__blast .../>} XML. */
     public static final String META = "blast.data";
-    /** Marker metadata flag for fast lookup. */
+    /** Marker metadata: a UXO record as {@code <__blast_uxo .../>} XML. */
+    public static final String META_UXO = "blast.uxo";
+    /** Marker metadata flag for fast lookup (both kinds). */
     public static final String META_FLAG = "blast.zone";
     /** Ring metadata: owning marker UID. */
     public static final String META_PARENT = "blast.parent";
@@ -55,6 +62,9 @@ public final class BlastStore {
     public static final String MARKER_TYPE = "a-h-G";
     public static final String MAND_SUFFIX = ".mand";
     public static final String PREF_SUFFIX = ".pref";
+    public static final String CORDON_SUFFIX = ".cordon";
+    private static final String[] SUFFIXES = { MAND_SUFFIX, PREF_SUFFIX,
+            CORDON_SUFFIX };
 
     static final int RED = 0xFFD50000;
     static final int RED_FILL = 0x55D50000;
@@ -62,6 +72,9 @@ public final class BlastStore {
     static final int AMBER_FILL = 0x33FFAB00;
     static final int GREY = 0xFF9E9E9E;
     static final int GREY_FILL = 0x149E9E9E;
+    /** UXO cordon: dark orange, distinct from the IED card's colours. */
+    static final int ORANGE = 0xFFE65100;
+    static final int ORANGE_FILL = 0x40E65100;
 
 
     private final MapView mapView;
@@ -114,9 +127,19 @@ public final class BlastStore {
     /** The incident marker with this UID if it is on the map, else null. */
     public Marker liveMarker(String uid) {
         MapItem mi = liveItem(uid);
-        if (mi instanceof Marker && read(mi) != null)
+        if (mi instanceof Marker && isIncident(mi))
             return (Marker) mi;
         return null;
+    }
+
+    /** True for an incident marker of either kind. */
+    public static boolean isIncident(MapItem mi) {
+        return read(mi) != null || readUxo(mi) != null;
+    }
+
+    /** True for a UXO incident marker. */
+    public static boolean isUxo(MapItem mi) {
+        return readUxo(mi) != null;
     }
 
     public void register(String uid) {
@@ -151,13 +174,23 @@ public final class BlastStore {
      * while the plugin isn't loaded.
      */
     static void store(MapItem item, String xml) {
-        item.setMetaString(META, xml);
+        store(item, xml, META, BlastCodec.DETAIL);
+    }
+
+    /** Store a UXO record (see {@link #store(MapItem, String)}). */
+    static void storeUxo(MapItem item, String xml) {
+        store(item, xml, META_UXO, UxoCodec.DETAIL);
+    }
+
+    private static void store(MapItem item, String xml, String meta,
+            String detail) {
+        item.setMetaString(meta, xml);
         item.setMetaBoolean(META_FLAG, true);
         try {
             AttributeSet opaque = item.getMetaAttributeSet(OPAQUE);
             if (opaque == null)
                 opaque = new AttributeSet();
-            opaque.setAttribute(BlastCodec.DETAIL, xml);
+            opaque.setAttribute(detail, xml);
             item.setMetaAttributeSet(OPAQUE, opaque);
         } catch (RuntimeException e) {
             Log.w(TAG, "opaque mirror failed", e);
@@ -195,13 +228,39 @@ public final class BlastStore {
         return null;
     }
 
+    /** The UXO record on a marker; null if none (adopts the opaque copy). */
+    public static UxoRecord readUxo(MapItem item) {
+        if (!(item instanceof Marker))
+            return null;
+        try {
+            String xml = item.getMetaString(META_UXO, null);
+            if (xml != null) {
+                UxoRecord r = UxoCodec.fromXml(xml);
+                if (r != null)
+                    return r;
+            }
+            AttributeSet opaque = item.getMetaAttributeSet(OPAQUE);
+            if (opaque != null && opaque.containsAttribute(UxoCodec.DETAIL)) {
+                String s = opaque.getStringAttribute(UxoCodec.DETAIL, null);
+                UxoRecord r = UxoCodec.fromXml(s);
+                if (r != null) {
+                    item.setMetaString(META_UXO, UxoCodec.toXml(r));
+                    item.setMetaBoolean(META_FLAG, true);
+                    return r;
+                }
+            }
+        } catch (RuntimeException e) {
+            Log.w(TAG, "unreadable UXO data on " + item.getUID(), e);
+        }
+        return null;
+    }
+
     /** True for one of our rings. */
     public static boolean isRing(MapItem item) {
         if (!(item instanceof DrawingCircle))
             return false;
         String uid = item.getUID();
-        return uid != null
-                && (uid.endsWith(MAND_SUFFIX) || uid.endsWith(PREF_SUFFIX))
+        return uid != null && suffixOf(uid) != null
                 && item.hasMetaValue(META_PARENT);
     }
 
@@ -209,16 +268,15 @@ public final class BlastStore {
     public Marker zoneMarkerFor(MapItem item) {
         if (item == null)
             return null;
-        if (item instanceof Marker && read(item) != null)
+        if (item instanceof Marker && isIncident(item))
             return (Marker) item;
         if (item instanceof DrawingCircle) {
             String parent = item.getMetaString(META_PARENT, null);
             if (parent == null) {
                 String uid = item.getUID();
-                if (uid != null && uid.endsWith(MAND_SUFFIX))
-                    parent = uid.substring(0, uid.length() - MAND_SUFFIX.length());
-                else if (uid != null && uid.endsWith(PREF_SUFFIX))
-                    parent = uid.substring(0, uid.length() - PREF_SUFFIX.length());
+                String sfx = uid == null ? null : suffixOf(uid);
+                if (sfx != null)
+                    parent = uid.substring(0, uid.length() - sfx.length());
             }
             if (parent != null)
                 return liveMarker(parent);
@@ -244,8 +302,9 @@ public final class BlastStore {
         try {
             for (MapItem mi : mapView.getRootGroup().getAllItems()) {
                 if (mi instanceof Marker && isLive(mi)
-                        && (mi.hasMetaValue(META) || mi.hasMetaValue(OPAQUE))
-                        && read(mi) != null
+                        && (mi.hasMetaValue(META) || mi.hasMetaValue(META_UXO)
+                                || mi.hasMetaValue(OPAQUE))
+                        && isIncident(mi)
                         && found.put(mi.getUID(), (Marker) mi) == null)
                     fromIndex++;
             }
@@ -260,8 +319,9 @@ public final class BlastStore {
                         public boolean onItemFunction(MapItem item) {
                             if (item instanceof Marker
                                     && (item.hasMetaValue(META)
+                                            || item.hasMetaValue(META_UXO)
                                             || item.hasMetaValue(OPAQUE))
-                                    && read(item) != null)
+                                    && isIncident(item))
                                 walked.add((Marker) item);
                             return false;
                         }
@@ -304,7 +364,7 @@ public final class BlastStore {
                             if (item instanceof Marker
                                     && !item.getMetaBoolean(META_FLAG, false)
                                     && item.hasMetaValue(OPAQUE)
-                                    && read(item) != null)
+                                    && isIncident(item))
                                 n[0]++;
                             return false;
                         }
@@ -328,15 +388,29 @@ public final class BlastStore {
      * else the "BLAST n" at the start of the name (0.1-0.5 incidents).
      */
     public static int numberOf(Marker m) {
+        UxoRecord u = readUxo(m);
+        if (u != null)
+            return Math.max(u.number, Names.uxoNumberIn(nameOf(m)));
         BlastRecord r = read(m);
         int stored = r != null ? r.number : 0;
         return Math.max(stored, Names.numberIn(nameOf(m)));
     }
 
+    /** Next BLAST number (bomb-threat card incidents only). */
     public int nextNumber() {
         int max = 0;
         for (Marker m : all())
-            max = Math.max(max, numberOf(m));
+            if (!isUxo(m))
+                max = Math.max(max, numberOf(m));
+        return max + 1;
+    }
+
+    /** Next UXO number (UXO incidents have their own sequence). */
+    public int nextUxoNumber() {
+        int max = 0;
+        for (Marker m : all())
+            if (isUxo(m))
+                max = Math.max(max, numberOf(m));
         return max + 1;
     }
 
@@ -363,6 +437,60 @@ public final class BlastStore {
         register(m.getUID());
         write(m, r);
         return m;
+    }
+
+    /** Place a new UXO incident; returns its marker. */
+    public Marker createUxo(GeoPoint at, UxoRecord r) {
+        int number = nextUxoNumber();
+        r = r.withNumber(number);
+        String name = Names.initialUxo(number, r.plainLabel());
+        String uid = UUID.randomUUID().toString();
+        Marker m = new PlacePointTool.MarkerCreator(at)
+                .setUid(uid)
+                .setType(MARKER_TYPE)
+                .setCallsign(name)
+                .showCotDetails(false)
+                .setShowNewRadial(false)
+                .setAllowDuplicativeNames(true)
+                .setArchive(true)
+                .placePoint();
+        if (m == null)
+            return null;
+        register(m.getUID());
+        writeUxo(m, r);
+        return m;
+    }
+
+    /**
+     * Store a UXO record on its marker and bring the cordon and labels up
+     * to date. False (and nothing changed) if the marker is gone.
+     */
+    public boolean writeUxo(Marker m, UxoRecord r) {
+        if (!isLive(m)) {
+            Log.w(TAG, "not writing to removed incident " + m.getUID());
+            return false;
+        }
+        storeUxo(m, UxoCodec.toXml(r));
+        String current = nameOf(m);
+        String wanted = Names.withStatus(current.isEmpty()
+                ? Names.initialUxo(Math.max(1, r.number), r.plainLabel())
+                : current, r.isCleared());
+        if (!wanted.equals(current))
+            setName(m, wanted);
+        m.setMetaString("remarks", UxoText.mergeRemarks(
+                m.getMetaString("remarks", null), r));
+        ensureCordon(m, r);
+        m.persist(mapView.getMapEventDispatcher(), null, BlastStore.class);
+        return true;
+    }
+
+    /** Draw or update whatever the incident needs (either kind). */
+    public void ensureAll(Marker m) {
+        UxoRecord u = readUxo(m);
+        if (u != null)
+            ensureCordon(m, u);
+        else
+            ensureRings(m, read(m));
     }
 
     /**
@@ -403,6 +531,18 @@ public final class BlastStore {
      */
     public boolean rename(Marker m, String typed) {
         String clean = Names.sanitize(typed);
+        UxoRecord u = readUxo(m);
+        if (u != null) {
+            if (clean == null || !isLive(m))
+                return false;
+            if (u.number == 0) {
+                int n = numberOf(m);
+                if (n > 0)
+                    u = u.withNumber(n);
+            }
+            setName(m, Names.withStatus(clean, u.isCleared()));
+            return writeUxo(m, u);
+        }
         BlastRecord r = read(m);
         if (clean == null || r == null || !isLive(m))
             return false;
@@ -488,6 +628,49 @@ public final class BlastStore {
         watch(c);
     }
 
+    /** Create or restyle a UXO incident's cordon circle. */
+    public void ensureCordon(Marker m, UxoRecord r) {
+        if (!isLive(m) || r == null)
+            return;
+        watch(m);
+        String uid = m.getUID() + CORDON_SUFFIX;
+        MapItem existing = liveItem(uid);
+        DrawingCircle c;
+        boolean added = false;
+        if (existing instanceof DrawingCircle) {
+            c = (DrawingCircle) existing;
+        } else if (existing != null) {
+            Log.w(TAG, "uid " + uid + " is not a circle; not drawing cordon");
+            return;
+        } else {
+            c = new DrawingCircle(mapView, uid);
+            ATAKUtilities.setAuthorInformation(c);
+            c.setCenterMarker(m);
+            added = true;
+        }
+        c.setMetaString(META_PARENT, m.getUID());
+        c.setMetaBoolean("editable", false);
+        c.setMovable(false);
+        if (Math.abs(c.getRadius() - r.cordonM) > 0.01)
+            c.setRadius(r.cordonM);
+        c.setTitle(UxoText.ringTitle(r));
+        c.setStrokeColor(r.isCleared() ? GREY : ORANGE);
+        c.setFillColor(r.isCleared() ? GREY_FILL : ORANGE_FILL);
+        c.setStrokeWeight(4d);
+        if (c.getCenterMarker() != m)
+            c.setCenterMarker(m);
+        if (added) {
+            MapGroup g = DrawingToolsMapComponent.getGroup();
+            if (g == null)
+                g = mapView.getRootGroup();
+            g.addItem(c);
+            if (c.getCenterMarker() != m)
+                c.setCenterMarker(m);
+        }
+        c.persist(mapView.getMapEventDispatcher(), null, BlastStore.class);
+        watch(c);
+    }
+
     /** The marker and its rings, marker first (send order). */
     public List<MapItem> items(Marker m) {
         List<MapItem> out = new ArrayList<>();
@@ -498,12 +681,15 @@ public final class BlastStore {
         MapItem mand = liveItem(m.getUID() + MAND_SUFFIX);
         if (mand != null)
             out.add(mand);
+        MapItem cordon = liveItem(m.getUID() + CORDON_SUFFIX);
+        if (cordon != null)
+            out.add(cordon);
         return out;
     }
 
     /** Remove the rings that belong to a marker UID (local only). */
     public void removeRings(String markerUid) {
-        for (String sfx : new String[] { MAND_SUFFIX, PREF_SUFFIX }) {
+        for (String sfx : SUFFIXES) {
             MapItem c = liveItem(markerUid + sfx);
             if (c != null)
                 c.removeFromGroup();
@@ -530,11 +716,16 @@ public final class BlastStore {
     static String incidentUid(String uid) {
         if (uid == null)
             return null;
-        if (uid.endsWith(MAND_SUFFIX))
-            return uid.substring(0, uid.length() - MAND_SUFFIX.length());
-        if (uid.endsWith(PREF_SUFFIX))
-            return uid.substring(0, uid.length() - PREF_SUFFIX.length());
-        return uid;
+        String sfx = suffixOf(uid);
+        return sfx == null ? uid : uid.substring(0, uid.length() - sfx.length());
+    }
+
+    /** The ring suffix a UID ends with, or null. */
+    static String suffixOf(String uid) {
+        for (String sfx : SUFFIXES)
+            if (uid.endsWith(sfx))
+                return sfx;
+        return null;
     }
 
     // ------------------------------------------------------------------

@@ -4,7 +4,7 @@
 
 #show: userguide.with(
    plugin-name: "Blast",
-   plugin-version: "1.0",
+   plugin-version: "1.1",
    platform: "ATAK",
    platform-version: "5.6.0",
 )
@@ -60,6 +60,30 @@ Above 60,000 lb (the Semi-Trailer row) the card publishes no distance, so Blast 
 - *Delete* (in the list or on the card) removes the whole incident, marker and both rings, after you confirm: *This device only* or *Delete for everyone*. *Delete for everyone* sends ATAK's remote-delete request; clients that are offline keep their copy.
 - *Delete all cleared* removes every greyed-out incident at once when the event is over (active incidents are not touched).
 - Deleting the marker or either ring with ATAK's own delete also removes the rest of that incident.
+]
+
+#tak-slide[
+  = Military ordnance (UXO), new in 1.1
+For shells, bombs, mines, grenades, rockets and other military ordnance, choose *MILITARY ORDNANCE (UXO)* under New incident. Three steps on one card:
++ *What do you see?* Six types from US multi-service doctrine (ATP 4-32.2, March 2024, Fig. 31), each with its cordon: grenade, landmine or bomblet 300 m; artillery shell or mortar 375 m; rocket or missile 475 m; large or guided missile 600 m; aircraft bomb or dispenser 675 m; pile or cache 800 m. *Unknown* uses the 300 m minimum, or 675 m if it looks bomb or missile sized. *More than one item* adds 50 m.
++ *Where are you?* On a known safe path, possibly in a minefield or bomblet area, or in a vehicle. This chooses the movement advice (leave by the same path; stop and don't move your feet; stay in the vehicle).
++ *Place it* without going closer: tap the map, *Range & bearing* from your GPS position (magnetic or true), map center, or a marker's radial menu.
+
+Blast draws a hostile marker *UXO n* and one orange cordon circle. The card shows your distance (inside or outside the cordon), a *Do now* list, the movement drills, team counts and the source. UXO incidents are never sent automatically.
+
+= Reporting
+*REPORT / 9-LINE…* on the card (or *9-line* in the list) fills a plain *what / where / when* report or the military EOD 9-line (ATP 4-32.2 Table 2) from the incident. Add a description, landmark, priority and contact; *Save* stores it on the incident (it travels with SEND), *Copy text* puts it on the clipboard for a call, text or chat. In conflict areas, reporting can put people at risk: choose who receives it.
+]
+
+#tak-slide[
+  = The Reference tab
+Offline: what to do if you find something (Recognize, Retreat, Report), the minefield and vehicle drills, radios and phones (only outside the cordon, never within 50 m), marking, what each type looks like, what the rings mean (with DoD fragment-distance comparisons), how responders work (5-Cs, 9-line priorities), IMAS terms and all sources. Set your *emergency number* (911, 112, 101/102, a mine action centre) at the top.
+
+= UXO caveats
+- The cordon is a *minimum* for people in the open while the item is left alone. ATP 4-32.2 warns that fragments may travel farther; DoD's maximum fragment ranges are larger (about 820 m for a 155 mm shell).
+- Cover helps but never shrinks the cordon. Never touch, move or approach the item, not even for a photo.
+- In a possible minefield or bomblet area, stop and wait for help; retracing your footsteps isn't safe unless you've been trained (UNMAS).
+- Authorities set the real cordon and may use much larger distances. Blast doesn't replace EOD, police or mine action authorities.
 ]
 
 #tak-slide[

@@ -2,6 +2,7 @@ package com.atakmap.android.blast.plugin.atak;
 
 import com.atakmap.android.blast.plugin.core.BlastRecord;
 import com.atakmap.android.blast.plugin.core.Exports;
+import com.atakmap.android.blast.plugin.core.UxoRecord;
 import com.atakmap.android.importexport.CotEventFactory;
 import com.atakmap.android.maps.MapItem;
 import com.atakmap.android.maps.Marker;
@@ -52,12 +53,13 @@ public final class Exporter {
     /** Write one format; returns the file. */
     public File export(Marker m, Format format) throws IOException {
         BlastRecord r = BlastStore.read(m);
+        UxoRecord u = BlastStore.readUxo(m);
         GeoPoint gp = m.getPoint();
-        if (r == null || gp == null || !gp.isValid())
+        if ((r == null && u == null) || gp == null || !gp.isValid())
             throw new IOException("not an incident");
         String name = BlastStore.nameOf(m);
         long now = System.currentTimeMillis();
-        Exports.Incident in = new Exports.Incident(name,
+        Exports.Incident in = r == null ? null : new Exports.Incident(name,
                 gp.getLatitude(), gp.getLongitude(), r);
 
         File dir = directory();
@@ -86,12 +88,19 @@ public final class Exporter {
                 break;
             }
             case KMZ:
-                writeZip(out, Exports.kmz(in));
+                writeZip(out, u != null
+                        ? Exports.kmzUxo(name, gp.getLatitude(),
+                                gp.getLongitude(), u)
+                        : Exports.kmz(in));
                 break;
             case GPX:
             default: {
                 try (OutputStream os = IOProviderFactory.getOutputStream(out)) {
-                    os.write(Exports.gpx(in, now).getBytes("UTF-8"));
+                    String gpx = u != null
+                            ? Exports.gpxUxo(name, gp.getLatitude(),
+                                    gp.getLongitude(), u, now)
+                            : Exports.gpx(in, now);
+                    os.write(gpx.getBytes("UTF-8"));
                 }
                 break;
             }

@@ -18,10 +18,21 @@ public final class Names {
     public static final int MAX_LENGTH = 64;
 
     private static final Pattern NUMBER = Pattern.compile("^BLAST (\\d{1,6})\\b");
+    private static final Pattern UXO_NUMBER = Pattern.compile("^UXO (\\d{1,6})\\b");
 
     /** Default name for a new incident: "BLAST 3 SUV/Van". */
     public static String initial(int number, String rowLabel) {
         return "BLAST " + number + " " + rowLabel;
+    }
+
+    /** Default name for a new UXO incident: "UXO 2 Artillery shell or mortar". */
+    public static String initialUxo(int number, String plainLabel) {
+        return "UXO " + number + " " + plainLabel;
+    }
+
+    /** "UXO 2 ..." → 2; 0 if the name doesn't start that way. */
+    public static int uxoNumberIn(String name) {
+        return number(UXO_NUMBER, name);
     }
 
     /** The name without the CLEARED suffix. */
@@ -71,9 +82,13 @@ public final class Names {
 
     /** "BLAST 3 ..." → 3; 0 if the name doesn't start that way. */
     public static int numberIn(String name) {
+        return number(NUMBER, name);
+    }
+
+    private static int number(Pattern p, String name) {
         if (name == null)
             return 0;
-        Matcher m = NUMBER.matcher(name.trim());
+        Matcher m = p.matcher(name.trim());
         if (m.find()) {
             try {
                 return Integer.parseInt(m.group(1));

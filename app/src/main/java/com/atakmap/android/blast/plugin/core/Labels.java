@@ -97,10 +97,19 @@ public final class Labels {
      * below it, so nothing a person wrote is ever dropped.
      */
     public static String mergeRemarks(String existing, BlastRecord r) {
-        String block = remarks(r);
+        return mergeBlock(existing, remarks(r), REMARKS_PREFIX);
+    }
+
+    /**
+     * Replace the generated block that starts with {@code prefix} and ends
+     * with {@link #REMARKS_END}; keep everything else (see
+     * {@link #mergeRemarks}).
+     */
+    public static String mergeBlock(String existing, String block,
+            String prefix) {
         if (existing == null || existing.trim().isEmpty())
             return block;
-        int start = existing.indexOf(REMARKS_PREFIX);
+        int start = existing.indexOf(prefix);
         if (start >= 0) {
             int end = existing.indexOf(REMARKS_END, start);
             if (end >= 0) {

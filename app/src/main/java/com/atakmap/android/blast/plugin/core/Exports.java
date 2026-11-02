@@ -164,6 +164,73 @@ public final class Exports {
         return files;
     }
 
+    /** KML for a UXO incident: the cordon polygon and the item point. */
+    public static String kmlUxo(String name, double lat, double lon,
+            UxoRecord r) {
+        String nm = name == null || name.isEmpty() ? "UXO" : name;
+        boolean grey = r.isCleared();
+        double[][] cordon = Geo.ring(lat, lon, r.cordonM);
+        StringBuilder sb = new StringBuilder();
+        sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+        sb.append("<kml xmlns=\"http://www.opengis.net/kml/2.2\">\n<Document>\n");
+        tag(sb, "name", nm);
+        tag(sb, "description", UxoText.remarks(r));
+        // KML colours are aabbggrr: dark orange E65100 -> ff0051e6.
+        style(sb, "cordon", grey ? "ff9e9e9e" : "ff0051e6",
+                grey ? "149e9e9e" : "400051e6", 4, null);
+        style(sb, "item", null, null, 0, grey ? "ff9e9e9e" : "ff0051e6");
+        sb.append("<Folder>\n");
+        tag(sb, "name", nm);
+        sb.append("<Placemark>\n");
+        tag(sb, "name", UxoText.ringTitle(r));
+        tag(sb, "description", UxoText.basis(r));
+        sb.append("<styleUrl>#cordon</styleUrl>\n<Polygon>\n<outerBoundaryIs>");
+        linearRing(sb, cordon);
+        sb.append("</outerBoundaryIs>\n</Polygon>\n</Placemark>\n");
+        sb.append("<Placemark>\n");
+        tag(sb, "name", nm);
+        tag(sb, "description", UxoText.remarks(r));
+        sb.append("<styleUrl>#item</styleUrl>\n<Point><coordinates>")
+                .append(coord(lon)).append(',').append(coord(lat))
+                .append(",0</coordinates></Point>\n</Placemark>\n");
+        sb.append("</Folder>\n</Document>\n</kml>\n");
+        return sb.toString();
+    }
+
+    public static Map<String, byte[]> kmzUxo(String name, double lat,
+            double lon, UxoRecord r) {
+        Map<String, byte[]> files = new LinkedHashMap<>();
+        files.put("doc.kml", kmlUxo(name, lat, lon, r).getBytes(UTF8));
+        return files;
+    }
+
+    /** GPX for a UXO incident: a waypoint and the cordon as a track. */
+    public static String gpxUxo(String name, double lat, double lon,
+            UxoRecord r, long nowMillis) {
+        String nm = name == null || name.isEmpty() ? "UXO" : name;
+        StringBuilder sb = new StringBuilder();
+        sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+        sb.append("<gpx version=\"1.1\" creator=\"Blast for ATAK\" "
+                + "xmlns=\"http://www.topografix.com/GPX/1/1\">\n");
+        sb.append("<metadata>");
+        tagInline(sb, "name", nm);
+        tagInline(sb, "desc", UxoText.basis(r));
+        tagInline(sb, "time", Formats.iso(nowMillis));
+        sb.append("</metadata>\n");
+        sb.append("<wpt lat=\"").append(coord(lat)).append("\" lon=\"")
+                .append(coord(lon)).append("\">");
+        tagInline(sb, "name", nm);
+        tagInline(sb, "cmt", UxoText.threat(r) + ": minimum cordon "
+                + UxoText.cordon(r.cordonM));
+        tagInline(sb, "desc", UxoText.remarks(r));
+        tagInline(sb, "sym", GPX_SYMBOL);
+        sb.append("</wpt>\n");
+        track(sb, Names.base(nm) + " CORDON " + r.cordonM + " m",
+                UxoText.ringTitle(r), Geo.ring(lat, lon, r.cordonM));
+        sb.append("</gpx>\n");
+        return sb.toString();
+    }
+
     // ------------------------------------------------------------------
     // GPX 1.1
 

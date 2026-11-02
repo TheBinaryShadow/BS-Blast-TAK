@@ -8,7 +8,7 @@ import com.atakmap.android.blast.plugin.atak.BlastDetailHandler;
 import com.atakmap.android.blast.plugin.atak.BlastMenuHandler;
 import com.atakmap.android.blast.plugin.atak.BlastStore;
 import com.atakmap.android.blast.plugin.atak.Sharing;
-import com.atakmap.android.blast.plugin.core.BlastRecord;
+import com.atakmap.android.blast.plugin.atak.UxoDetailHandler;
 import com.atakmap.android.blast.plugin.ui.BlastPane;
 import com.atakmap.android.cot.detail.CotDetailManager;
 import com.atakmap.android.maps.MapEvent;
@@ -47,6 +47,7 @@ public final class BlastPlugin implements IPlugin {
     private BlastStore store;
     private Sharing sharing;
     private BlastDetailHandler detailHandler;
+    private UxoDetailHandler uxoHandler;
     private BlastMenuHandler menuHandler;
     private MapEventDispatcher.MapEventDispatchListener removeListener;
 
@@ -100,6 +101,19 @@ public final class BlastPlugin implements IPlugin {
         } catch (RuntimeException e) {
             Log.e(TAG, "detail handler registration failed", e);
         }
+        try {
+            uxoHandler = new UxoDetailHandler(store);
+            uxoHandler.setOnChange(new Runnable() {
+                @Override
+                public void run() {
+                    if (controller != null)
+                        controller.onShow();
+                }
+            });
+            CotDetailManager.getInstance().registerHandler(uxoHandler);
+        } catch (RuntimeException e) {
+            Log.e(TAG, "UXO detail handler registration failed", e);
+        }
 
         try {
             menuHandler = new BlastMenuHandler(mapView.getContext(),
@@ -148,11 +162,8 @@ public final class BlastPlugin implements IPlugin {
         // make sure the rings exist.
         try {
             store.adoptAll();
-            for (Marker m : store.all()) {
-                BlastRecord r = BlastStore.read(m);
-                if (r != null)
-                    store.ensureRings(m, r);
-            }
+            for (Marker m : store.all())
+                store.ensureAll(m);
         } catch (RuntimeException e) {
             Log.e(TAG, "startup adoption failed", e);
         }
@@ -182,6 +193,15 @@ public final class BlastPlugin implements IPlugin {
             }
             detailHandler.dispose();
             detailHandler = null;
+        }
+        if (uxoHandler != null) {
+            try {
+                CotDetailManager.getInstance().unregisterHandler(uxoHandler);
+            } catch (RuntimeException e) {
+                Log.e(TAG, "UXO detail handler unregister failed", e);
+            }
+            uxoHandler.dispose();
+            uxoHandler = null;
         }
         if (removeListener != null && mapView != null) {
             mapView.getMapEventDispatcher().removeMapEventListener(

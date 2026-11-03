@@ -156,18 +156,6 @@ public class UxoTextTest {
     }
 
     @Test
-    public void simpleReport() {
-        UxoRecord r = rec("GREN_MINE_SUBMUN", false);
-        String s = UxoText.simpleReport(r, "18S UJ 1 2");
-        assertTrue(s.startsWith("SUSPECTED UNEXPLODED ORDNANCE\nWHAT: "
-                + "Grenade, landmine or bomblet\n"));
-        assertTrue(s.contains("WHERE: 18S UJ 1 2\n"));
-        assertTrue(s.contains("MEASURES: cordon 300 m (990 ft) advised"));
-        assertTrue(s.endsWith("Nobody has touched or moved it."));
-        assertTrue(UxoText.simpleReport(r, null).contains("(no position)"));
-    }
-
-    @Test
     public void referenceNumbersMatchTheTables() {
         StringBuilder all = new StringBuilder();
         for (UxoReference.Section s : UxoReference.sections()) {

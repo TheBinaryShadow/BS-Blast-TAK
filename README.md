@@ -31,8 +31,8 @@ Prevention and FBI Counter-IED Unit, edition "As of Aug 2025"):
   (Mar 2024) Fig. 31 (300-800 m cordon, +50 m for more than one item,
   Unknown = 300 m or 675 m), say where you are (known path / possible
   minefield / vehicle) for the right movement drill, place it by map tap
-  or range and bearing; one orange cordon, DO NOW list, plain report or
-  EOD 9-line saved on the incident; never auto-sent
+  or range and bearing; one orange cordon, DO NOW list, EOD 9-line report
+  saved on the incident; never auto-sent
 - Reference tab (offline): safety rules, minefield and vehicle drills,
   radio rule, marking, recognition, what the rings mean, 5-Cs, IMAS terms,
   sources; settable emergency number

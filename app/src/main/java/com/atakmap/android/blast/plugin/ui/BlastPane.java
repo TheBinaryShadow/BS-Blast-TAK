@@ -572,8 +572,8 @@ public final class BlastPane {
         });
         col.addView(largeBtn, full());
         multiCheck = new CheckBox(plugin);
-        multiCheck.setText("More than one item (+" + UxoTable.MULTI_ADD_M
-                + " m)");
+        multiCheck.setText("More than one item (adds " + UxoTable.MULTI_ADD_M
+                + " m to the cordon)");
         multiCheck.setTextColor(TEXT);
         multiCheck.setOnCheckedChangeListener(
                 new CompoundButton.OnCheckedChangeListener() {
@@ -874,8 +874,8 @@ public final class BlastPane {
         teamText = text("", 12, DIM, false);
         card.addView(teamText);
 
-        Button report = button(r.report.isEmpty() ? "REPORT / 9-LINE…"
-                : "REPORT / 9-LINE… (edit)", SEND);
+        Button report = button(r.report.isEmpty() ? "EOD 9-LINE REPORT…"
+                : "EOD 9-LINE REPORT… (edit)", SEND);
         report.setTypeface(Typeface.DEFAULT_BOLD);
         report.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -1139,97 +1139,104 @@ public final class BlastPane {
         box.setPadding(pd, dp(8), pd, 0);
         sv.addView(box);
 
-        final boolean[] nine = { false };
         final TextView preview = new TextView(ctx);
         preview.setTypeface(Typeface.MONOSPACE);
         preview.setTextIsSelectable(true);
         preview.setPadding(0, dp(8), 0, dp(8));
 
-        final CheckBox nineBox = new CheckBox(ctx);
-        nineBox.setText("Military EOD 9-line format (otherwise a plain "
-                + "what / where / when report)");
-        box.addView(nineBox);
-
-        final EditText count = field(ctx, box, "Number of items seen",
-                rp.count > 0 ? Integer.toString(rp.count) : "", true);
-        final EditText desc = field(ctx, box,
-                "Description: size, shape, colour, markings, condition",
-                rp.description, false);
-        final EditText land = field(ctx, box, "Landmark / how to find it",
-                rp.landmark, false);
-        final String[] emps = { "", "Dropped", "Projected", "Placed",
-                "Thrown", "Possible IED", "Unknown" };
-        final int[] emp = { 0 };
+        box.addView(note(ctx, "Line 1 (time found) and line 2 (grid) are "
+                + "filled in from the incident."));
+        final EditText land = field(ctx, box,
+                "Line 2, landmark / how to find it", rp.landmark, false);
+        final EditText poc = field(ctx, box,
+                "Line 3, contact (callsign, phone, frequency)", rp.contact,
+                false);
+        box.addView(label(ctx, "Line 4, how it got there"));
+        final String[] emps = { "Dropped", "Projected", "Placed", "Thrown",
+                "Possible IED", "Unknown" };
+        final int[] emp = { -1 };
         for (int i = 0; i < emps.length; i++)
             if (emps[i].equals(rp.emplacement))
                 emp[0] = i;
-        final Button empBtn = new Button(ctx);
-        empBtn.setAllCaps(false);
-        box.addView(empBtn);
+        final List<Button> empBtns = choiceRow(box, emps, 3);
+        final EditText count = field(ctx, box, "Line 4, number of items seen",
+                rp.count > 0 ? Integer.toString(rp.count) : "", true);
+        final EditText desc = field(ctx, box,
+                "Line 4, description: size, shape, colour, markings, "
+                        + "condition", rp.description, false);
         final EditText cbrn = field(ctx, box,
-                "Chemical or other signs (leaks, smell, sick people)", rp.cbrn,
-                false);
+                "Line 5, chemical or other signs (leaks, smell, sick people)",
+                rp.cbrn, false);
         final EditText res = field(ctx, box,
-                "Resources threatened (road, homes, school…)", rp.resources,
-                false);
-        final EditText imp = field(ctx, box, "Impact (road closed, …)",
-                rp.impact, false);
+                "Line 6, resources threatened (road, homes, school…)",
+                rp.resources, false);
+        final EditText imp = field(ctx, box,
+                "Line 7, impact (road closed, …)", rp.impact, false);
         final EditText prot = field(ctx, box,
-                "Protective measures taken (e.g. people kept out)",
+                "Line 8, protective measures taken (e.g. people kept out)",
                 rp.protective, false);
-        final UxoRecord.Priority[] pris = UxoRecord.Priority.values();
-        final int[] pri = { rp.priority.ordinal() };
-        final Button priBtn = new Button(ctx);
-        priBtn.setAllCaps(false);
-        box.addView(priBtn);
-        final EditText poc = field(ctx, box,
-                "Contact (callsign, phone, frequency)", rp.contact, false);
+        box.addView(label(ctx, "Line 9, recommended priority"));
+        final UxoRecord.Priority[] pris = { UxoRecord.Priority.IMMEDIATE,
+                UxoRecord.Priority.INDIRECT, UxoRecord.Priority.MINOR,
+                UxoRecord.Priority.NO_THREAT };
+        final String[] priLabels = new String[pris.length];
+        final int[] pri = { -1 };
+        for (int i = 0; i < pris.length; i++) {
+            priLabels[i] = pris[i].label;
+            if (pris[i] == rp.priority)
+                pri[0] = i;
+        }
+        final List<Button> priBtns = choiceRow(box, priLabels, 2);
+        final TextView priNote = note(ctx, "");
+        box.addView(priNote);
+        box.addView(label(ctx, "Preview"));
         box.addView(preview);
-        TextView caution = new TextView(ctx);
-        caution.setText(UxoText.REPORT_CAUTION + " " + UxoText.PRIORITY_NOTE
-                + "\nEmergency number: " + emergencyNumber());
+        TextView caution = note(ctx, UxoText.REPORT_CAUTION + " "
+                + UxoText.PRIORITY_NOTE + "\nEmergency number: "
+                + emergencyNumber());
         box.addView(caution);
 
+        final String[] priDesc = {
+                "Stops movement or threatens vital assets.",
+                "Slows movement or threatens important assets.",
+                "Reduces movement or threatens non-critical assets.",
+                "Little or no effect at present." };
         final Runnable update = new Runnable() {
             @Override
             public void run() {
-                empBtn.setText("Line 4, how it got there: "
-                        + (emp[0] == 0 ? "(not given)" : emps[emp[0]]));
-                priBtn.setText("Line 9, priority: "
-                        + (pri[0] == 0 ? "(not given)" : pris[pri[0]].label));
-                priBtn.setVisibility(nine[0] ? View.VISIBLE : View.GONE);
-                empBtn.setVisibility(nine[0] ? View.VISIBLE : View.GONE);
-                res.setVisibility(nine[0] ? View.VISIBLE : View.GONE);
-                imp.setVisibility(nine[0] ? View.VISIBLE : View.GONE);
+                for (int i = 0; i < empBtns.size(); i++)
+                    tint(empBtns.get(i), i == emp[0] ? UXO_SEL : BTN);
+                for (int i = 0; i < priBtns.size(); i++)
+                    tint(priBtns.get(i), i == pri[0] ? UXO_SEL : BTN);
+                priNote.setText(pri[0] < 0 ? "Tap one (tap again to clear)."
+                        : priDesc[pri[0]]);
                 UxoRecord r = r0.withReport(collect(count, desc, land,
-                        emps[emp[0]], cbrn, res, imp, prot, pris[pri[0]], poc));
-                preview.setText(nine[0]
-                        ? UxoText.nineLine(r, callsign(), grid(m))
-                        : UxoText.simpleReport(r, grid(m)));
+                        emp[0] < 0 ? "" : emps[emp[0]], cbrn, res, imp, prot,
+                        pri[0] < 0 ? UxoRecord.Priority.UNSET : pris[pri[0]],
+                        poc));
+                preview.setText(UxoText.nineLine(r, callsign(), grid(m)));
             }
         };
-        nineBox.setOnCheckedChangeListener(
-                new CompoundButton.OnCheckedChangeListener() {
-                    @Override
-                    public void onCheckedChanged(CompoundButton b, boolean on) {
-                        nine[0] = on;
-                        update.run();
-                    }
-                });
-        empBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                emp[0] = (emp[0] + 1) % emps.length;
-                update.run();
-            }
-        });
-        priBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                pri[0] = (pri[0] + 1) % pris.length;
-                update.run();
-            }
-        });
+        for (int i = 0; i < empBtns.size(); i++) {
+            final int k = i;
+            empBtns.get(i).setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    emp[0] = emp[0] == k ? -1 : k;
+                    update.run();
+                }
+            });
+        }
+        for (int i = 0; i < priBtns.size(); i++) {
+            final int k = i;
+            priBtns.get(i).setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    pri[0] = pri[0] == k ? -1 : k;
+                    update.run();
+                }
+            });
+        }
         TextWatcher tw = new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int a, int b, int c) {
@@ -1248,26 +1255,31 @@ public final class BlastPane {
                 prot, poc })
             e.addTextChangedListener(tw);
         update.run();
+        final Runnable save = new Runnable() {
+            @Override
+            public void run() {
+                saveReport(m, collect(count, desc, land,
+                        emp[0] < 0 ? "" : emps[emp[0]], cbrn, res, imp, prot,
+                        pri[0] < 0 ? UxoRecord.Priority.UNSET : pris[pri[0]],
+                        poc));
+            }
+        };
 
         new AlertDialog.Builder(ctx)
-                .setTitle("Report: " + BlastStore.nameOf(m))
+                .setTitle("EOD 9-line: " + BlastStore.nameOf(m))
                 .setView(sv)
                 .setPositiveButton("Save",
                         new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface d, int w) {
-                                saveReport(m, collect(count, desc, land,
-                                        emps[emp[0]], cbrn, res, imp, prot,
-                                        pris[pri[0]], poc));
+                                save.run();
                             }
                         })
                 .setNeutralButton("Copy text",
                         new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface d, int w) {
-                                saveReport(m, collect(count, desc, land,
-                                        emps[emp[0]], cbrn, res, imp, prot,
-                                        pris[pri[0]], poc));
+                                save.run();
                                 copy(preview.getText().toString());
                             }
                         })
@@ -1277,10 +1289,7 @@ public final class BlastPane {
 
     private EditText field(Context ctx, LinearLayout box, String hint,
             String value, boolean number) {
-        TextView label = new TextView(ctx);
-        label.setText(hint);
-        label.setPadding(0, dp(6), 0, 0);
-        box.addView(label);
+        box.addView(label(ctx, hint));
         EditText e = new EditText(ctx);
         e.setText(value);
         e.setInputType(number ? InputType.TYPE_CLASS_NUMBER
@@ -1293,6 +1302,45 @@ public final class BlastPane {
         });
         box.addView(e);
         return e;
+    }
+
+    private TextView label(Context ctx, String s) {
+        TextView t = new TextView(ctx);
+        t.setText(s);
+        t.setTypeface(Typeface.DEFAULT_BOLD);
+        t.setPadding(0, dp(8), 0, dp(2));
+        return t;
+    }
+
+    private TextView note(Context ctx, String s) {
+        TextView t = new TextView(ctx);
+        t.setText(s);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        t.setPadding(0, dp(2), 0, dp(2));
+        return t;
+    }
+
+    /** Single-choice push buttons, {@code perRow} to a row (dark style). */
+    private List<Button> choiceRow(LinearLayout box, String[] labels,
+            int perRow) {
+        List<Button> out = new ArrayList<>();
+        LinearLayout row = null;
+        for (int i = 0; i < labels.length; i++) {
+            if (i % perRow == 0) {
+                row = horizontal();
+                box.addView(row, full());
+            }
+            Button b = button(labels[i], BTN);
+            LinearLayout.LayoutParams lp = weight();
+            lp.setMargins(dp(1), dp(1), dp(1), dp(1));
+            row.addView(b, lp);
+            out.add(b);
+        }
+        // Keep the last row's buttons the same width as the others.
+        int pad = (perRow - labels.length % perRow) % perRow;
+        for (int i = 0; i < pad && row != null; i++)
+            row.addView(new View(plugin), weight());
+        return out;
     }
 
     private static UxoRecord.Report collect(EditText count, EditText desc,

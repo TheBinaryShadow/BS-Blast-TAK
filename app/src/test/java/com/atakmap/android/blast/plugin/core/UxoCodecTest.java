@@ -182,7 +182,7 @@ public class UxoCodecTest {
                 assertNotNull(UxoCodec.fromXml(UxoCodec.toXml(d)));
                 UxoText.remarks(d);
                 UxoText.nineLine(d, "X", "grid");
-                UxoText.simpleReport(d, null);
+                UxoText.nineLine(d, null, null);
             }
         }
     }

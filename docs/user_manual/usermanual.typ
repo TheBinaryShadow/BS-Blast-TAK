@@ -65,14 +65,14 @@ Above 60,000 lb (the Semi-Trailer row) the card publishes no distance, so Blast 
 #tak-slide[
   = Military ordnance (UXO), new in 1.1
 For shells, bombs, mines, grenades, rockets and other military ordnance, choose *MILITARY ORDNANCE (UXO)* under New incident. Three steps on one card:
-+ *What do you see?* Six types from US multi-service doctrine (ATP 4-32.2, March 2024, Fig. 31), each with its cordon: grenade, landmine or bomblet 300 m; artillery shell or mortar 375 m; rocket or missile 475 m; large or guided missile 600 m; aircraft bomb or dispenser 675 m; pile or cache 800 m. *Unknown* uses the 300 m minimum, or 675 m if it looks bomb or missile sized. *More than one item* adds 50 m.
++ *What do you see?* Six types from US multi-service doctrine (ATP 4-32.2, March 2024, Fig. 31), each with its cordon: grenade, landmine or bomblet 300 m; artillery shell or mortar 375 m; rocket or missile 475 m; large or guided missile 600 m; aircraft bomb or dispenser 675 m; pile or cache 800 m. *Unknown* uses the 300 m minimum, or 675 m if it looks bomb or missile sized. *More than one item* adds 50 m to the cordon.
 + *Where are you?* On a known safe path, possibly in a minefield or bomblet area, or in a vehicle. This chooses the movement advice (leave by the same path; stop and don't move your feet; stay in the vehicle).
 + *Place it* without going closer: tap the map, *Range & bearing* from your GPS position (magnetic or true), map center, or a marker's radial menu.
 
 Blast draws a hostile marker *UXO n* and one orange cordon circle. The card shows your distance (inside or outside the cordon), a *Do now* list, the movement drills, team counts and the source. UXO incidents are never sent automatically.
 
 = Reporting
-*REPORT / 9-LINE…* on the card (or *9-line* in the list) fills a plain *what / where / when* report or the military EOD 9-line (ATP 4-32.2 Table 2) from the incident. Add a description, landmark, priority and contact; *Save* stores it on the incident (it travels with SEND), *Copy text* puts it on the clipboard for a call, text or chat. In conflict areas, reporting can put people at risk: choose who receives it.
+*EOD 9-LINE REPORT…* on the card (or *9-line* in the list) fills in the military EOD 9-line (ATP 4-32.2 Table 2) from the incident: lines 1 and 2 (time and grid) automatically; add a landmark, contact, how it got there (line 4 buttons), number of items, description, signs of chemicals, resources threatened, impact, measures taken and the priority (line 9 buttons). *Save* stores it on the incident (it travels with SEND); *Copy text* puts it on the clipboard for a call, text or chat. In conflict areas, reporting can put people at risk: choose who receives it.
 ]
 
 #tak-slide[

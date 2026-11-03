@@ -198,7 +198,7 @@ public final class UxoReference {
                             "• CONTROL the cordon until EOD, police or medics "
                                     + "take over.",
                             "The EOD 9-line report (ATP 4-32.2 Table 2) is on "
-                                    + "every UXO card (REPORT). Priorities:",
+                                    + "every UXO card (EOD 9-LINE REPORT). Priorities:",
                             "• IMMEDIATE: stops movement or threatens vital "
                                     + "assets.",
                             "• INDIRECT: slows movement or threatens "

@@ -215,7 +215,8 @@ public final class UxoText {
                 + "helps but doesn't make it safe to be closer.");
         out.add("Use radios and phones only outside the cordon, never within "
                 + UxoTable.RADIO_MIN_M + " m of the item.");
-        out.add("Report it (REPORT on this card) once you are outside the "
+        out.add("Report it (EOD 9-LINE REPORT on this card) once you are "
+                + "outside the "
                 + "cordon.");
         UxoTable.Category c = r.category();
         String id = c == null ? "" : c.id;
@@ -328,44 +329,6 @@ public final class UxoText {
 
     // ------------------------------------------------------------------
     // Reports
-
-    /**
-     * Plain report for a phone call or text: what, where, when, measures.
-     * {@code grid} is the item's position as the user's ATAK formats it.
-     */
-    public static String simpleReport(UxoRecord r, String grid) {
-        UxoRecord.Report p = r.report;
-        StringBuilder sb = new StringBuilder();
-        sb.append("SUSPECTED UNEXPLODED ORDNANCE\n");
-        sb.append("WHAT: ").append(r.plainLabel());
-        if (p.count > 0)
-            sb.append(", ").append(p.count).append(p.count == 1 ? " item"
-                    : " items");
-        else if (r.multiple)
-            sb.append(", more than one item");
-        if (!p.description.isEmpty())
-            sb.append(". ").append(p.description);
-        sb.append('\n');
-        sb.append("WHERE: ").append(grid == null || grid.isEmpty()
-                ? "(no position)" : grid);
-        if (r.placement == UxoRecord.Placement.RB)
-            sb.append(" (approximate, range and bearing)");
-        if (!p.landmark.isEmpty())
-            sb.append(". ").append(p.landmark);
-        sb.append('\n');
-        sb.append("WHEN: ").append(r.timeMillis > 0 ? Formats.dtg(r.timeMillis)
-                : "unknown").append('\n');
-        sb.append("MEASURES: ").append(p.protective.isEmpty()
-                ? "cordon " + cordon(r.cordonM) + " advised"
-                : p.protective).append('\n');
-        if (!p.cbrn.isEmpty())
-            sb.append("CHEMICAL / OTHER SIGNS: ").append(p.cbrn).append('\n');
-        sb.append("REPORTED BY: ").append(p.contact.isEmpty()
-                ? (r.byCallsign.isEmpty() ? "unknown" : r.byCallsign)
-                : p.contact).append('\n');
-        sb.append("Nobody has touched or moved it.");
-        return sb.toString();
-    }
 
     /**
      * EOD 9-line (ATP 4-32.2 Table 2). {@code reporter} is the reporting

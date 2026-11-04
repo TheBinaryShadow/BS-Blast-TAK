@@ -132,7 +132,9 @@ public final class BlastPane {
     private EditText nucYieldEdit;
     private Button nucKtBtn, nucMtBtn, nucPickBtn, nucCenterBtn, nucTargetBtn;
     private final List<Button> nucBurstButtons = new ArrayList<>();
-    private TextView nucWindText, nucSelText;
+    private TextView nucSelText;
+    private LinearLayout nucPreview;
+    private WindPicker nucWindPicker;
     private boolean nucMegatons, nucSettingText;
     private String nucPresetId;
     private NucModel.Burst nucBurst = NucModel.Burst.UNKNOWN;
@@ -387,7 +389,7 @@ public final class BlastPane {
         modes.addView(modeIedBtn, weight());
         modes.addView(modeUxoBtn, weight());
         col.addView(modes);
-        modeNucBtn = button("NUCLEAR DETONATION (reference / planning)", BTN);
+        modeNucBtn = button("NUCLEAR DETONATION", BTN);
         modeNucBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -819,7 +821,7 @@ public final class BlastPane {
         note.setText("Measured from your GPS position. Estimate from where "
                 + "you are now; never walk closer to measure.");
         box.addView(note);
-        new AlertDialog.Builder(ctx)
+        showTyping(new AlertDialog.Builder(ctx)
                 .setTitle("Place by range & bearing")
                 .setView(box)
                 .setPositiveButton("Place",
@@ -867,7 +869,7 @@ public final class BlastPane {
                             }
                         })
                 .setNegativeButton("Cancel", null)
-                .show();
+                );
     }
 
     // ------------------------------------------------------------------
@@ -978,32 +980,21 @@ public final class BlastPane {
         }
 
         col.addView(header("3. WIND (optional, for fallout)"));
-        nucWindText = text("", 13, TEXT, false);
-        col.addView(nucWindText);
-        LinearLayout wl = horizontal();
-        Button setWind = button("Set wind…", BTN);
-        setWind.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                promptWind(null);
-            }
-        });
-        Button noWind = button("No wind / unknown", BTN);
-        noWind.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                nucWindFrom = Double.NaN;
-                nucWindMph = Double.NaN;
-                updateNuc();
-            }
-        });
-        wl.addView(setWind, weight());
-        wl.addView(noWind, weight());
-        col.addView(wl);
+        nucWindPicker = new WindPicker(col, nucWindFrom, nucWindMph,
+                new WindListener() {
+                    @Override
+                    public void onWind(double fromDeg, double mph) {
+                        nucWindFrom = fromDeg;
+                        nucWindMph = mph;
+                        updateNuc();
+                    }
+                });
 
         nucSelText = text("", 13, TEXT, false);
         nucSelText.setPadding(0, dp(4), 0, dp(4));
         col.addView(nucSelText);
+        nucPreview = vertical();
+        col.addView(nucPreview);
 
         col.addView(header("4. PLACE GROUND ZERO"));
         nucTargetBtn = button("", SEND);
@@ -1103,20 +1094,9 @@ public final class BlastPane {
         tint(nucMtBtn, nucMegatons ? NUC_SEL : BTN);
         for (Button b : nucBurstButtons)
             tint(b, b.getTag() == nucBurst ? NUC_SEL : BTN);
-        boolean wind = NucRecord.validWind(nucWindFrom, nucWindMph);
-        if (wind) {
-            nucWindText.setText("Wind from " + Math.round(nucWindFrom)
-                    + "° true at " + Math.round(nucWindMph) + " mph ("
-                    + Math.round(nucWindMph * 1.609344) + " km/h): fallout "
-                    + "drifts toward " + Math.round((nucWindFrom + 180) % 360)
-                    + "°." + (nucBurst == NucModel.Burst.AIR
-                            ? " (No fallout is drawn for an air burst.)" : ""));
-            nucWindText.setTextColor(TEXT);
-        } else {
-            nucWindText.setText("No wind set: fallout contours are not drawn. "
-                    + "The card still says to get inside.");
-            nucWindText.setTextColor(DIM);
-        }
+        if (nucWindPicker != null)
+            nucWindPicker.restyle();
+        nucPreview.removeAllViews();
         double kt = nucYieldKt();
         if (Double.isNaN(kt)) {
             nucSelText.setText("Type a yield or choose a preset.");
@@ -1127,13 +1107,16 @@ public final class BlastPane {
         } else {
             NucRecord.Radii r = NucRecord.Radii.of(kt, nucBurst);
             NucPresets.Preset p = NucPresets.byId(nucPresetId);
-            String s = (p != null ? p.label + " (" + p.note + ")\n" : "")
-                    + NucPresets.yieldLabel(kt) + ": severe damage "
-                    + NucText.dist(r.sdzM) + ", moderate "
-                    + NucText.dist(r.mdzM) + ", light "
-                    + NucText.dist(r.ldzM) + ". Burns "
-                    + NucText.dist(r.burnM) + ", initial radiation "
-                    + NucText.dist(r.radM) + ".";
+            String s = (p != null ? p.label + " (" + p.note + "): " : "")
+                    + NucPresets.yieldLabel(kt) + ", "
+                    + nucBurst.label.toLowerCase(java.util.Locale.US)
+                    + ". Will draw:";
+            double[] rs = { r.sdzM, r.mdzM, r.ldzM, r.burnM, r.radM };
+            NucText.Ring[] rings = { NucText.Ring.SDZ, NucText.Ring.MDZ,
+                    NucText.Ring.LDZ, NucText.Ring.BURN, NucText.Ring.RAD };
+            for (int k = 0; k < rings.length; k++)
+                nucPreview.addView(legendRow(rings[k], NucText.dist(rs[k]),
+                        null, false));
             if (NucModel.extrapolated(kt))
                 s += "\nOutside Glasstone's 1 kt-10 Mt charts: burn and "
                         + "radiation rings are extrapolated.";
@@ -1156,87 +1139,6 @@ public final class BlastPane {
         }
     }
 
-    /**
-     * Wind dialog. With a marker, updates that incident; otherwise sets the
-     * wind for the next placement.
-     */
-    private void promptWind(final Marker card) {
-        Context ctx = mapView.getContext();
-        LinearLayout box = new LinearLayout(ctx);
-        box.setOrientation(LinearLayout.VERTICAL);
-        int p = dp(16);
-        box.setPadding(p, dp(8), p, 0);
-        double f0 = nucWindFrom, s0 = nucWindMph;
-        if (card != null) {
-            NucRecord r = BlastStore.readNuc(card);
-            if (r != null) {
-                f0 = r.windFromDeg;
-                s0 = r.windMph;
-            }
-        }
-        final EditText from = new EditText(ctx);
-        from.setHint("Wind blowing FROM, degrees true (0-359)");
-        from.setInputType(InputType.TYPE_CLASS_NUMBER
-                | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        from.setSingleLine(true);
-        if (!Double.isNaN(f0))
-            from.setText(Long.toString(Math.round(f0)));
-        box.addView(from);
-        final EditText speed = new EditText(ctx);
-        speed.setHint("Wind speed");
-        speed.setInputType(InputType.TYPE_CLASS_NUMBER
-                | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        speed.setSingleLine(true);
-        if (!Double.isNaN(s0))
-            speed.setText(Long.toString(Math.round(s0)));
-        box.addView(speed);
-        final CheckBox kmh = new CheckBox(ctx);
-        kmh.setText("Speed in km/h (otherwise mph)");
-        box.addView(kmh);
-        TextView note = new TextView(ctx);
-        note.setText("A weather report gives the direction the wind comes "
-                + "FROM (a west wind is 270). Fallout drifts the other way. "
-                + "Glasstone's scaling holds for about 8-45 mph; speeds "
-                + "outside that are clamped. Winds aloft may differ.");
-        box.addView(note);
-        new AlertDialog.Builder(ctx)
-                .setTitle(card == null ? "Wind for fallout" : "Change wind")
-                .setView(box)
-                .setPositiveButton("Set", new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface d, int w) {
-                        double f = ZoneCalculator.parseQuantity(
-                                from.getText().toString());
-                        double s = ZoneCalculator.parseQuantity(
-                                speed.getText().toString());
-                        if (kmh.isChecked())
-                            s = s / 1.609344;
-                        if (!NucRecord.validWind(f, s)) {
-                            toast("Enter a direction 0-359 and a speed of at "
-                                    + "least 1 mph.");
-                            return;
-                        }
-                        if (card == null) {
-                            nucWindFrom = f % 360;
-                            nucWindMph = s;
-                            updateNuc();
-                        } else {
-                            saveWind(card, f, s);
-                        }
-                    }
-                })
-                .setNeutralButton(card == null ? "Cancel" : "Remove wind",
-                        new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface d, int w) {
-                                if (card != null)
-                                    saveWind(card, Double.NaN, Double.NaN);
-                            }
-                        })
-                .setNegativeButton(card == null ? null : "Cancel", null)
-                .show();
-    }
-
     private void saveWind(Marker card, double from, double mph) {
         try {
             Marker m = live(card);
@@ -1249,7 +1151,9 @@ public final class BlastPane {
             }
             cardSignature = null;
             refresh();
-            toast("Wind updated on this device. Use SEND to share it.");
+            toast(NucRecord.validWind(from, mph)
+                    ? "Wind updated on this device. Use SEND to share it."
+                    : "Wind removed on this device. Use SEND to share it.");
         } catch (RuntimeException e) {
             Log.e(TAG, "wind update failed", e);
             toast("Could not update the incident.");
@@ -1286,6 +1190,275 @@ public final class BlastPane {
             Log.e(TAG, "nuclear place failed", e);
             toast("Could not place the incident.");
         }
+    }
+
+    // ------------------------------------------------------------------
+    // Wind picker (like HAZ-TAK): compass buttons for the direction the
+    // wind blows FROM, speed buttons, optional exact values typed inline.
+
+    private interface WindListener {
+        void onWind(double fromDeg, double mph);
+    }
+
+    private static final String[] COMPASS = { "N", "NE", "E", "SE", "S",
+            "SW", "W", "NW" };
+    /** Speed presets, mph: light, moderate (Glasstone's 15 mph), strong. */
+    private static final double[] SPEEDS = { 8, 15, 30 };
+    private static final String[] SPEED_LABELS = { "Light\n~8 mph",
+            "Moderate\n~15 mph", "Strong\n~30 mph" };
+
+    private final class WindPicker {
+        double from, mph;
+        final WindListener listener;
+        final List<Button> dirs = new ArrayList<>();
+        final List<Button> speeds = new ArrayList<>();
+        final Button none;
+        final EditText exactFrom, exactSpeed;
+        final Button kmhBtn;
+        boolean kmh;
+        final TextView status;
+
+        WindPicker(LinearLayout col, double from0, double mph0,
+                WindListener l) {
+            from = from0;
+            mph = mph0;
+            listener = l;
+            col.addView(text("Which way is the wind blowing FROM?", 13, TEXT,
+                    true));
+            for (int row = 0; row < 2; row++) {
+                LinearLayout line = horizontal();
+                for (int k = row * 4; k < row * 4 + 4; k++) {
+                    final double deg = k * 45;
+                    Button b = button(COMPASS[k], BTN);
+                    b.setOnClickListener(new View.OnClickListener() {
+                        @Override
+                        public void onClick(View v) {
+                            from = deg;
+                            if (Double.isNaN(mph))
+                                mph = SPEEDS[1];
+                            changed();
+                        }
+                    });
+                    dirs.add(b);
+                    line.addView(b, weight());
+                }
+                col.addView(line);
+            }
+            LinearLayout ex = horizontal();
+            ex.setGravity(Gravity.CENTER_VERTICAL);
+            exactFrom = inlineNumber("Exact ° true (0-359)", 5);
+            ex.addView(exactFrom, new LinearLayout.LayoutParams(0,
+                    ViewGroup.LayoutParams.WRAP_CONTENT, 2f));
+            Button setDir = button("Set", BTN);
+            setDir.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    double f = ZoneCalculator.parseQuantity(
+                            exactFrom.getText().toString());
+                    if (!(f >= 0 && f <= 360)) {
+                        toast("Enter a direction from 0 to 359.");
+                        return;
+                    }
+                    from = f % 360;
+                    if (Double.isNaN(mph))
+                        mph = SPEEDS[1];
+                    changed();
+                }
+            });
+            ex.addView(setDir, weight());
+            col.addView(ex);
+
+            col.addView(text("Wind speed", 13, TEXT, true));
+            LinearLayout sp = horizontal();
+            for (int k = 0; k < SPEEDS.length; k++) {
+                final double s = SPEEDS[k];
+                Button b = button(SPEED_LABELS[k], BTN);
+                b.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        mph = s;
+                        changed();
+                    }
+                });
+                speeds.add(b);
+                sp.addView(b, weight());
+            }
+            col.addView(sp);
+            LinearLayout es = horizontal();
+            es.setGravity(Gravity.CENTER_VERTICAL);
+            exactSpeed = inlineNumber("Exact speed", 5);
+            es.addView(exactSpeed, new LinearLayout.LayoutParams(0,
+                    ViewGroup.LayoutParams.WRAP_CONTENT, 2f));
+            kmhBtn = button("mph", BTN);
+            kmhBtn.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    kmh = !kmh;
+                    kmhBtn.setText(kmh ? "km/h" : "mph");
+                }
+            });
+            es.addView(kmhBtn, weight());
+            Button setSp = button("Set", BTN);
+            setSp.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    double s = ZoneCalculator.parseQuantity(
+                            exactSpeed.getText().toString());
+                    if (kmh)
+                        s = s / 1.609344;
+                    if (!(s >= 1 && s <= 200)) {
+                        toast("Enter a speed of at least 1 mph (2 km/h).");
+                        return;
+                    }
+                    mph = s;
+                    changed();
+                }
+            });
+            es.addView(setSp, weight());
+            col.addView(es);
+            none = button("Wind unknown (no fallout drawn)", BTN);
+            none.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    from = Double.NaN;
+                    mph = Double.NaN;
+                    changed();
+                }
+            });
+            col.addView(none, full());
+            status = text("", 12, DIM, false);
+            col.addView(status);
+            restyle();
+        }
+
+        void set(double f, double s) {
+            from = f;
+            mph = s;
+            exactFrom.setText("");
+            exactSpeed.setText("");
+            restyle();
+        }
+
+        boolean valid() {
+            return NucRecord.validWind(from, mph);
+        }
+
+        private void changed() {
+            restyle();
+            listener.onWind(valid() ? from : Double.NaN,
+                    valid() ? mph : Double.NaN);
+        }
+
+        void restyle() {
+            boolean ok = valid();
+            for (int k = 0; k < dirs.size(); k++)
+                tint(dirs.get(k), ok && Math.abs(angleDiff(from, k * 45))
+                        < 0.5 ? NUC_SEL : BTN);
+            for (int k = 0; k < speeds.size(); k++)
+                tint(speeds.get(k), ok && Math.abs(mph - SPEEDS[k]) < 0.05
+                        ? NUC_SEL : BTN);
+            tint(none, ok ? BTN : NUC_SEL);
+            if (ok) {
+                status.setText("Wind FROM " + Math.round(from) + "° ("
+                        + compassName(from) + ") at " + Math.round(mph)
+                        + " mph / " + Math.round(mph * 1.609344)
+                        + " km/h: fallout drifts toward "
+                        + Math.round((from + 180) % 360) + "° ("
+                        + compassName(from + 180) + "). Surface wind is a "
+                        + "rough guide: fallout follows the winds aloft.");
+                status.setTextColor(TEXT);
+            } else {
+                status.setText("No wind: fallout contours are not drawn. "
+                        + "Everyone within 50 miles should still get inside.");
+                status.setTextColor(DIM);
+            }
+        }
+    }
+
+    private static double angleDiff(double a, double b) {
+        double d = ((a - b) % 360 + 540) % 360 - 180;
+        return d;
+    }
+
+    /** Nearest of 16 compass points. */
+    static String compassName(double deg) {
+        String[] p = { "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S",
+                "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW" };
+        int i = (int) Math.round((((deg % 360) + 360) % 360) / 22.5) % 16;
+        return p[i];
+    }
+
+    private EditText inlineNumber(String hint, int maxLen) {
+        EditText e = new EditText(plugin);
+        e.setInputType(InputType.TYPE_CLASS_NUMBER
+                | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        e.setHint(hint);
+        e.setTextColor(TEXT);
+        e.setHintTextColor(DIM);
+        e.setSingleLine(true);
+        e.setFilters(new android.text.InputFilter[] {
+                new android.text.InputFilter.LengthFilter(maxLen) });
+        return e;
+    }
+
+    /** Ring colours for text on the dark card (brighter than the map). */
+    private static int ringTextColor(NucText.Ring ring) {
+        switch (ring) {
+            case SDZ:
+                return 0xFFFF5252;
+            case MDZ:
+                return 0xFFFF9100;
+            case LDZ:
+                return 0xFFFFEA00;
+            case BURN:
+                return 0xFF18FFFF;
+            case RAD:
+                return 0xFF8C9EFF;
+            default:
+                return 0xFFE0E0E0;
+        }
+    }
+
+    /** One legend row: colour bar, coloured name and distance, meaning. */
+    private View legendRow(NucText.Ring ring, String dist, String meaning,
+            boolean grey) {
+        LinearLayout row = horizontal();
+        row.setPadding(0, dp(3), 0, dp(3));
+        View bar = new View(plugin);
+        bar.setBackgroundColor(grey ? DIM : ringTextColor(ring));
+        LinearLayout.LayoutParams bl = new LinearLayout.LayoutParams(dp(8),
+                ViewGroup.LayoutParams.MATCH_PARENT);
+        bl.setMargins(0, 0, dp(8), 0);
+        row.addView(bar, bl);
+        LinearLayout tx = vertical();
+        tx.addView(text(ring.label + ": " + dist, 14, grey ? DIM
+                : ringTextColor(ring), true));
+        if (meaning != null)
+            tx.addView(text(meaning, 12, DIM, false));
+        row.addView(tx, new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        return row;
+    }
+
+    /** Show a dialog with text fields so the keyboard can reach them. */
+    private AlertDialog showTyping(AlertDialog.Builder b) {
+        final AlertDialog d = b.create();
+        d.setOnShowListener(new DialogInterface.OnShowListener() {
+            @Override
+            public void onShow(DialogInterface di) {
+                android.view.Window w = d.getWindow();
+                if (w != null) {
+                    w.clearFlags(android.view.WindowManager.LayoutParams
+                            .FLAG_NOT_FOCUSABLE
+                            | android.view.WindowManager.LayoutParams
+                                    .FLAG_ALT_FOCUSABLE_IM);
+                    w.setSoftInputMode(android.view.WindowManager.LayoutParams
+                            .SOFT_INPUT_ADJUST_RESIZE);
+                }
+            }
+        });
+        d.show();
+        return d;
     }
 
     // ------------------------------------------------------------------
@@ -1330,13 +1503,11 @@ public final class BlastPane {
         card.addView(teamText);
 
         card.addView(sub("RINGS (each an outer bound)"));
-        for (String[] row : NucText.rows(r)) {
-            card.addView(text(row[0] + ": " + row[1], 14, grey ? DIM : TEXT,
-                    true));
-            card.addView(text(row[2], 12, DIM, false));
-        }
-        card.addView(text("Dotted ring: FEMA's 50-mile Get Inside area.", 12,
-                DIM, false));
+        for (NucText.Ring ring : NucText.Ring.values())
+            card.addView(legendRow(ring, ring == NucText.Ring.GET_INSIDE
+                    ? "50 mi (80 km), dotted" : NucText.dist(ring.radiusM(r))
+                            + (ring == NucText.Ring.BURN ? ", dashed" : ""),
+                    NucText.meaning(ring), grey));
 
         card.addView(sub("FALLOUT"));
         card.addView(text(NucText.falloutLine(r), 13, TEXT, false));
@@ -1346,14 +1517,34 @@ public final class BlastPane {
                     + "tenfold for every sevenfold increase in time: 100 R/h "
                     + "at H+1 is about 10 R/h at H+7 and 1 R/h at H+49.", 12,
                     DIM, false));
-        Button wind = button(r.hasWind() ? "Change wind…" : "Add wind…", BTN);
-        wind.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                promptWind(m);
+        if (r.drawsFallout()) {
+            int[] fc = { 0xFFCE93D8, 0xFFE1BEE7, 0xFFF3E5F5 };
+            int[] fr = NucModel.FALLOUT_RATES;
+            for (int k = 0; k < fr.length; k++) {
+                LinearLayout row = horizontal();
+                View bar = new View(plugin);
+                bar.setBackgroundColor(grey ? DIM : fc[k]);
+                LinearLayout.LayoutParams bl = new LinearLayout.LayoutParams(
+                        dp(8), dp(18));
+                bl.setMargins(0, 0, dp(8), 0);
+                row.addView(bar, bl);
+                row.addView(text("Fallout " + Formats.thousands(fr[k])
+                        + " R/h at H+1, reaches "
+                        + NucText.dist(NucModel.contour(r.yieldKt, fr[k],
+                                r.windMph).downwindM)
+                        + " downwind", 13, grey ? DIM : fc[k], true));
+                card.addView(row);
             }
-        });
-        card.addView(wind, full());
+        }
+        if (r.isKnownModel()) {
+            card.addView(sub(r.hasWind() ? "CHANGE WIND" : "ADD WIND"));
+            new WindPicker(card, r.windFromDeg, r.windMph, new WindListener() {
+                @Override
+                public void onWind(double fromDeg, double mph) {
+                    saveWind(m, fromDeg, mph);
+                }
+            });
+        }
 
         LinearLayout a1 = horizontal();
         Button sendAll = button("SEND TO ALL", SEND);
@@ -1929,7 +2120,7 @@ public final class BlastPane {
             }
         };
 
-        new AlertDialog.Builder(ctx)
+        showTyping(new AlertDialog.Builder(ctx)
                 .setTitle("EOD 9-line: " + BlastStore.nameOf(m))
                 .setView(sv)
                 .setPositiveButton("Save",
@@ -1948,7 +2139,7 @@ public final class BlastPane {
                             }
                         })
                 .setNegativeButton("Cancel", null)
-                .show();
+                );
     }
 
     private EditText field(Context ctx, LinearLayout box, String hint,
@@ -2076,7 +2267,7 @@ public final class BlastPane {
         input.setFilters(new android.text.InputFilter[] {
                 new android.text.InputFilter.LengthFilter(24)
         });
-        new AlertDialog.Builder(mapView.getContext())
+        showTyping(new AlertDialog.Builder(mapView.getContext())
                 .setTitle("Emergency number")
                 .setMessage("Shown on UXO cards and reports, e.g. 911, 112, "
                         + "101 / 102 or a mine action centre.")
@@ -2098,7 +2289,7 @@ public final class BlastPane {
                             }
                         })
                 .setNegativeButton("Cancel", null)
-                .show();
+                );
     }
 
     // ------------------------------------------------------------------
@@ -2171,6 +2362,8 @@ public final class BlastPane {
         nucBurst = NucModel.Burst.UNKNOWN;
         nucWindFrom = Double.NaN;
         nucWindMph = Double.NaN;
+        if (nucWindPicker != null)
+            nucWindPicker.set(Double.NaN, Double.NaN);
         if (nucYieldEdit != null) {
             nucSettingText = true;
             nucYieldEdit.setText("");
@@ -3065,7 +3258,7 @@ public final class BlastPane {
         input.setFilters(new android.text.InputFilter[] {
                 new android.text.InputFilter.LengthFilter(Names.MAX_LENGTH)
         });
-        new AlertDialog.Builder(mapView.getContext())
+        showTyping(new AlertDialog.Builder(mapView.getContext())
                 .setTitle("Rename incident")
                 .setMessage("The name is the marker's callsign, so every TAK "
                         + "client shows it. CLEARED is added automatically "
@@ -3086,7 +3279,7 @@ public final class BlastPane {
                             }
                         })
                 .setNegativeButton("Cancel", null)
-                .show();
+                );
     }
 
     private void doRename(Marker card, String typed, boolean send) {

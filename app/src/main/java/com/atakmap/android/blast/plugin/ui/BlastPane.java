@@ -948,16 +948,21 @@ public final class BlastPane {
                 NucPresets.Group.HISTORICAL, NucPresets.Group.YIELD }) {
             String lbl = g == NucPresets.Group.PLANNING ? "FEMA\nscenarios"
                     : g == NucPresets.Group.FIELDED ? "Fielded\nweapons"
-                            : g == NucPresets.Group.HISTORICAL ? "Historical"
+                            : g == NucPresets.Group.HISTORICAL
+                                    ? "Tests &\nhistory"
                                     : "By\nyield";
             Button b = button(lbl, BTN);
+            b.setLines(2);
             b.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
                     choosePreset(g);
                 }
             });
-            pr.addView(b, weight());
+            LinearLayout.LayoutParams bl = new LinearLayout.LayoutParams(0,
+                    ViewGroup.LayoutParams.MATCH_PARENT, 1f);
+            bl.setMargins(dp(1), dp(1), dp(1), dp(1));
+            pr.addView(b, bl);
         }
         col.addView(pr);
 
@@ -1086,8 +1091,14 @@ public final class BlastPane {
             items[i] = g == NucPresets.Group.YIELD ? p.label
                     : p.label + " — " + p.note;
         }
+        // A message would hide the list, so the note goes in the title.
+        String title = g == NucPresets.Group.FIELDED
+                ? "Fielded weapons: public estimates, upper value of ranges"
+                : g == NucPresets.Group.HISTORICAL
+                        ? "Tests and historical weapons: published estimates"
+                        : g.label;
         AlertDialog.Builder b = new AlertDialog.Builder(mapView.getContext())
-                .setTitle(g.label)
+                .setTitle(title)
                 .setItems(items, new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface d, int w) {
@@ -1095,10 +1106,6 @@ public final class BlastPane {
                     }
                 })
                 .setNegativeButton("Cancel", null);
-        if (g == NucPresets.Group.FIELDED)
-            b.setMessage("Public, unofficial yield estimates (Nuclear "
-                    + "Notebook, SIPRI). Ranges use the upper value. Sources "
-                    + "are in the Reference tab.");
         b.show();
     }
 
@@ -1117,7 +1124,7 @@ public final class BlastPane {
             nucSelText.setText("Type a yield or choose a preset.");
             nucSelText.setTextColor(DIM);
         } else if (!NucModel.validYield(kt)) {
-            nucSelText.setText("Enter 0.1 kt to 20 Mt.");
+            nucSelText.setText("Enter 0.1 kt to 50 Mt.");
             nucSelText.setTextColor(RED);
         } else {
             NucRecord.Radii r = NucRecord.Radii.of(kt, nucBurst);
@@ -1183,7 +1190,7 @@ public final class BlastPane {
     private void placeNuc(GeoPoint at, NucRecord.Obs obs) {
         try {
             if (!nucReady()) {
-                toast("Enter a yield from 0.1 kt to 20 Mt first.");
+                toast("Enter a yield from 0.1 kt to 50 Mt first.");
                 return;
             }
             NucRecord r = NucRecord.create(nucYieldKt(), nucBurst,
@@ -1900,7 +1907,7 @@ public final class BlastPane {
             return;
         }
         if (!nucReady()) {
-            toast("Enter a yield from 0.1 kt to 20 Mt first.");
+            toast("Enter a yield from 0.1 kt to 50 Mt first.");
             return;
         }
         Context ctx = mapView.getContext();

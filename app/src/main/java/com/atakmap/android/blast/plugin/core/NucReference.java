@@ -237,7 +237,8 @@ public final class NucReference {
         List<String> ys = new ArrayList<>();
         ys.add("Yield presets are public, unofficial estimates. Ranged "
                 + "estimates use the upper value. Any yield from 0.1 kt to "
-                + "20 Mt can be typed instead.");
+                + "50 Mt can be typed instead. Above 10 Mt every ring is extrapolated "
+                + "beyond the source charts.");
         for (NucPresets.Preset p : NucPresets.all())
             if (p.group != NucPresets.Group.YIELD)
                 ys.add("• " + p.label + ": " + p.note + ". " + p.source + ".");

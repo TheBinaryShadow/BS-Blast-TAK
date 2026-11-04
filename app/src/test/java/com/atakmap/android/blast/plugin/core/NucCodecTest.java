@@ -81,7 +81,7 @@ public class NucCodecTest {
         assertNull(NucCodec.decode(a));
         a.put("y_kt", "Infinity");
         assertNull(NucCodec.decode(a));
-        a.put("y_kt", "50000");
+        a.put("y_kt", "60000");
         assertNull(NucCodec.decode(a));
         a = NucCodec.encode(sample());
         a.remove("mdl");

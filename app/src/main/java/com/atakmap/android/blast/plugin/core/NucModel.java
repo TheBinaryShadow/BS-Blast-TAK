@@ -42,7 +42,7 @@ public final class NucModel {
     public static final String MODEL_ED = "2026-11";
 
     public static final double MIN_KT = 0.1;
-    public static final double MAX_KT = 20000;
+    public static final double MAX_KT = 50000;
 
     public static final double M_PER_MI = 1609.344;
     static final double M_PER_YD = 0.9144;

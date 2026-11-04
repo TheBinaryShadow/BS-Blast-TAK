@@ -78,7 +78,7 @@ Blast draws a hostile marker *UXO n* and one orange cordon circle. The card show
 #tak-slide[
   = Nuclear detonation reference, new in 1.1
 For planning, training and "what would this mean here": choose *NUCLEAR DETONATION (reference / planning)* under New incident. It is a reference overlay, not a prediction of a real event.
-+ *Yield:* type kilotons or megatons (0.1 kt to 20 Mt), or pick *FEMA scenarios* (0.1, 1, 10 kT), *Fielded weapons* (public, unofficial estimates such as US W76-1 90 kt or China DF-41 425 kt; ranges use the upper value), *Historical* (Hiroshima, Nagasaki, Castle Bravo) or *By yield*.
++ *Yield:* type kilotons or megatons (0.1 kt to 50 Mt), or pick *FEMA scenarios* (0.1, 1, 10 kT), *Fielded weapons* (choose a country, then a weapon; public, unofficial estimates such as US W76-1 90 kt or China DF-41 425 kt; ranges use the upper value), *Tests & history* (Hiroshima, Nagasaki, Castle Bravo) or *By yield*.
 + *Burst:* *Unknown* (recommended: the worst case of both), *Surface* or *Air*. Blast never asks for or shows a burst height: air-burst rings are the farthest each effect reaches over all heights.
 + *Wind (optional):* the direction the wind blows *from* (degrees true) and its speed. With a wind, surface and unknown bursts get idealized fallout contours downwind.
 + *Place ground zero:* tap the map, map center or a marker.

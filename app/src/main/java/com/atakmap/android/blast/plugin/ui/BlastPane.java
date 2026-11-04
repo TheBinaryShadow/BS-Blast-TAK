@@ -1083,20 +1083,41 @@ public final class BlastPane {
         updateNuc();
     }
 
-    private void choosePreset(NucPresets.Group g) {
-        final List<NucPresets.Preset> ps = NucPresets.group(g);
+    private void choosePreset(final NucPresets.Group g) {
+        if (g == NucPresets.Group.FIELDED) {
+            // Country first, so no list gets long.
+            final String[] regions = NucPresets.REGIONS;
+            String[] items = new String[regions.length];
+            for (int i = 0; i < regions.length; i++)
+                items[i] = regions[i] + " ("
+                        + NucPresets.fielded(regions[i]).size() + ")";
+            new AlertDialog.Builder(mapView.getContext())
+                    .setTitle("Fielded weapons: choose a country")
+                    .setItems(items, new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface d, int w) {
+                            showPresets(regions[w] + ": public estimates, "
+                                    + "upper value of ranges",
+                                    NucPresets.fielded(regions[w]), false);
+                        }
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+            return;
+        }
+        showPresets(g == NucPresets.Group.HISTORICAL
+                ? "Tests and historical weapons: published estimates"
+                : g.label, NucPresets.group(g), g == NucPresets.Group.YIELD);
+    }
+
+    private void showPresets(String title,
+            final List<NucPresets.Preset> ps, boolean labelOnly) {
         String[] items = new String[ps.size()];
         for (int i = 0; i < items.length; i++) {
             NucPresets.Preset p = ps.get(i);
-            items[i] = g == NucPresets.Group.YIELD ? p.label
-                    : p.label + " — " + p.note;
+            items[i] = labelOnly ? p.label : p.label + " — " + p.note;
         }
         // A message would hide the list, so the note goes in the title.
-        String title = g == NucPresets.Group.FIELDED
-                ? "Fielded weapons: public estimates, upper value of ranges"
-                : g == NucPresets.Group.HISTORICAL
-                        ? "Tests and historical weapons: published estimates"
-                        : g.label;
         AlertDialog.Builder b = new AlertDialog.Builder(mapView.getContext())
                 .setTitle(title)
                 .setItems(items, new DialogInterface.OnClickListener() {

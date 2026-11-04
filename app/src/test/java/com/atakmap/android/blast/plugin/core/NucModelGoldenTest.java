@@ -218,5 +218,23 @@ public class NucModelGoldenTest {
         assertEquals("4.5 Mt", NucPresets.yieldLabel(4500));
         assertEquals("0.1 kt", NucPresets.yieldLabel(0.1));
         assertEquals("15 kt", NucPresets.yieldLabel(15));
+        // Fielded menu: country first; every fielded preset in one country.
+        int fielded = 0, listed = 0;
+        for (NucPresets.Preset p : NucPresets.all())
+            if (p.group == NucPresets.Group.FIELDED)
+                fielded++;
+        for (String r : NucPresets.REGIONS) {
+            java.util.List<NucPresets.Preset> l = NucPresets.fielded(r);
+            assertFalse(r, l.isEmpty());
+            assertTrue(r, l.size() <= 12);
+            for (int i = 1; i < l.size(); i++)
+                assertTrue(r, l.get(i - 1).kt <= l.get(i).kt);
+            listed += l.size();
+        }
+        assertEquals(fielded, listed);
+        assertEquals("United States",
+                NucPresets.region(NucPresets.byId("US_W88")));
+        assertEquals("", NucPresets.region(NucPresets.byId("US_B61_3")));
+        assertEquals(360, NucPresets.byId("US_B61_13").kt, 0);
     }
 }

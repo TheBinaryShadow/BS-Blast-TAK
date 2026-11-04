@@ -46,7 +46,7 @@ public final class NucPresets {
 
     static final String FEMA = "FEMA Planning Guidance, 3rd ed. (2022)";
     static final String NN_US = "Kristensen et al., Nuclear Notebook: United "
-            + "States nuclear weapons, 2025 (Bull. At. Sci.)";
+            + "States nuclear weapons, 2026 (Bull. At. Sci. 82:2), Table 1";
     static final String NN_RU = "Kristensen et al., Nuclear Notebook: Russian "
             + "nuclear weapons, 2026 (Bull. At. Sci.)";
     static final String NN_CN = "Kristensen et al., Nuclear Notebook: Chinese "
@@ -104,6 +104,8 @@ public final class NucPresets {
         l.add(new Preset("IN_1998", H, "India thermonuclear test, 1998", 45,
                 "claimed 43-45 kt (upper); seismic estimates far lower",
                 PT_1998));
+        l.add(new Preset("US_B61_3", H, "US B61-3/-4 bombs (Europe, "
+                + "replaced by B61-12)", 170, "0.3-170 kt (upper)", NN_US));
         l.add(new Preset("KP_2017", H, "North Korea test, Sep 2017", 280,
                 "est. 70-280 kt (upper; often quoted 250)", KP_TESTS));
         l.add(new Preset("FR_TN81", H, "France TN 81 (retired)", 300,
@@ -127,30 +129,28 @@ public final class NucPresets {
                 50000, "about 50 Mt (air burst)", HIST));
 
         // Current arsenals, by country then yield.
-        l.add(new Preset("US_B61_LOW", F, "US B61 bomb, lowest setting", 0.3,
-                "0.3 kt", NN_US));
+        l.add(new Preset("US_B61_LOW", F, "US B61-12 bomb, lowest setting",
+                0.3, "0.3 kt", NN_US));
         l.add(new Preset("US_W76_2", F, "US W76-2 (Trident II, low yield)", 8,
                 "8 kt", NN_US));
-        l.add(new Preset("US_B61_12", F, "US B61-12 bomb", 50,
-                "0.3-50 kt (upper)", NN_US));
+        l.add(new Preset("US_B61_12", F, "US B61-12 bomb (aircraft, incl. "
+                + "NATO Europe)", 50, "0.3-50 kt (upper)", NN_US));
         l.add(new Preset("US_W76_1", F, "US W76-1 (Trident II)", 90, "90 kt",
                 NN_US));
         l.add(new Preset("US_W80_1", F, "US W80-1 (air-launched cruise "
                 + "missile)", 150, "5-150 kt (upper)", NN_US));
-        l.add(new Preset("US_B61_3", F, "US B61-3/-4 bombs (Europe)", 170,
-                "0.3-170 kt (upper)", NN_US));
         l.add(new Preset("US_W87", F, "US W87 (Minuteman III)", 300, "300 kt",
                 NN_US));
         l.add(new Preset("US_W78", F, "US W78 (Minuteman III)", 335, "335 kt",
                 NN_US));
-        l.add(new Preset("US_B61_7", F, "US B61-7 bomb (B-2)", 360,
-                "10-360 kt (upper)", NN_US));
+        l.add(new Preset("US_B61_13", F, "US B61-13 bomb (new, replacing "
+                + "B61-7)", 360, "about 360 kt (close to the B61-7's)", NN_US));
         l.add(new Preset("US_B61_11", F, "US B61-11 earth-penetrating bomb",
                 400, "400 kt", NN_US));
         l.add(new Preset("US_W88", F, "US W88 (Trident II)", 455, "455 kt",
                 NN_US));
-        l.add(new Preset("US_B83", F, "US B83-1 bomb (being retired)", 1200,
-                "up to 1.2 Mt", HIST));
+        l.add(new Preset("US_B83", F, "US B83-1 bomb (few left, retiring)",
+                1200, "up to 1.2 Mt", NN_US));
         l.add(new Preset("RU_ISKANDER", F, "Russia Iskander-M", 100,
                 "10-100 kt (upper)", NN_RU));
         l.add(new Preset("RU_YARS", F, "Russia Yars (RS-24) / Bulava", 100,
@@ -196,6 +196,46 @@ public final class NucPresets {
         for (Preset p : ALL)
             if (p.group == g)
                 out.add(p);
+        return out;
+    }
+
+    /** Countries of the fielded presets, in list order. */
+    public static final String[] REGIONS = { "United States", "Russia",
+            "China", "United Kingdom", "France", "India / Pakistan",
+            "North Korea" };
+
+    /** Region of a fielded preset (from its id), or "" for other groups. */
+    public static String region(Preset p) {
+        if (p.group != Group.FIELDED)
+            return "";
+        String id = p.id;
+        if (id.startsWith("US_"))
+            return REGIONS[0];
+        if (id.startsWith("RU_"))
+            return REGIONS[1];
+        if (id.startsWith("CN_"))
+            return REGIONS[2];
+        if (id.startsWith("UK_"))
+            return REGIONS[3];
+        if (id.startsWith("FR_"))
+            return REGIONS[4];
+        if (id.startsWith("SA_"))
+            return REGIONS[5];
+        return REGIONS[6];
+    }
+
+    /** Fielded presets of one region, sorted by yield. */
+    public static List<Preset> fielded(String region) {
+        List<Preset> out = new ArrayList<>();
+        for (Preset p : ALL)
+            if (p.group == Group.FIELDED && region.equals(region(p)))
+                out.add(p);
+        java.util.Collections.sort(out, new java.util.Comparator<Preset>() {
+            @Override
+            public int compare(Preset a, Preset b) {
+                return Double.compare(a.kt, b.kt);
+            }
+        });
         return out;
     }
 

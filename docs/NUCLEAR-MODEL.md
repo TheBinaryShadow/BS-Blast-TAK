@@ -66,13 +66,19 @@ bump the edition whenever any number below changes).
   larger of the two just above 100 kt, so rings never shrink with yield).
   Surface: gamma x Table 8.37 (log-yield interpolation), neutrons x1/2.
   Ring at 100 rad (FEMA's "radiation injuries" line). Solved by bisection.
-- Fallout: Table 9.93 contours for 1,000 / 100 / 10 R/h at H+1, downwind
+- Fallout: Table 9.93 contours for 3,000 / 1,000 / 300 / 100 / 30 / 10 /
+  3 / 1 R/h at H+1 (8 graded bands), downwind
   x F(v); max width = max(table max width, GZ width). Drawn only for
   surface or unknown bursts with a wind. Arrival estimate = downwind
   distance / wind speed.
 - Outside 1 kt-10 Mt the thermal and radiation curves are extrapolated
   along their end segments (flagged on the card). Yield input is limited
-  to 0.1 kt-20 Mt.
+  to 0.1 kt-50 Mt.
+- Yield presets (test 8): US fielded weapons checked against Nuclear
+  Notebook "United States nuclear weapons, 2026" (Bull. At. Sci. 82:2,
+  Table 1). B61-3/-4 moved to history (replaced by B61-12 in Europe);
+  B61-7 replaced by B61-13 (~360 kt); B83-1 kept as retiring. Fielded
+  presets are chosen country first.
 
 ## Results (rounded)
 

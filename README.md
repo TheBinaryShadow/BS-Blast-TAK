@@ -34,9 +34,9 @@ Prevention and FBI Counter-IED Unit, edition "As of Aug 2025"):
   or range and bearing; one orange cordon, DO NOW list, EOD 9-line report
   saved on the incident; never auto-sent
 - Nuclear detonation reference (1.1+): a planning / training overlay,
-  not a prediction. Type any yield (0.1 kt-20 Mt) or pick a FEMA
-  scenario, a historical event or a fielded weapon (public, unofficial
-  yield estimates, cited); choose Unknown / Surface / Air burst (no burst
+  not a prediction. Type any yield (0.1 kt-50 Mt) or pick a FEMA
+  scenario, a test or historical weapon, or a fielded weapon chosen by
+  country (public, unofficial yield estimates, cited); choose Unknown / Surface / Air burst (no burst
   height is ever asked or shown: air rings are outer envelopes). Draws
   FEMA's Severe / Moderate / Light Damage Zones (0.5 / 1 / 3 mi at 10 kT,
   cube-root scaled), second-degree burns to bare skin, 100 rad initial
@@ -202,7 +202,7 @@ ACKNOWLEDGMENTS
   C1 2009, distribution unlimited); JP 3-11 (2008); LLNL NARAC briefing
   products. Current restricted manuals (TM 3-11.32, ATP-45) not used.
 - Yield presets: FAS / Bulletin of the Atomic Scientists Nuclear Notebook
-  (US 2025, Russia 2026, China 2026, UK 2024, India 2026, Pakistan 2023,
+  (US 2026, Russia 2026, China 2026, UK 2024, India 2026, Pakistan 2023,
   North Korea 2024), SIPRI Yearbook 2023 (France), LANL LA-8819; cited,
   not copied.
 - 2024 Emergency Response Guidebook (PHMSA, Transport Canada, SCT,

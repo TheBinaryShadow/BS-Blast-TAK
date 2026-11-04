@@ -2,6 +2,7 @@ package com.atakmap.android.blast.plugin.atak;
 
 import com.atakmap.android.blast.plugin.core.BlastRecord;
 import com.atakmap.android.blast.plugin.core.Exports;
+import com.atakmap.android.blast.plugin.core.NucRecord;
 import com.atakmap.android.blast.plugin.core.UxoRecord;
 import com.atakmap.android.importexport.CotEventFactory;
 import com.atakmap.android.maps.MapItem;
@@ -54,8 +55,10 @@ public final class Exporter {
     public File export(Marker m, Format format) throws IOException {
         BlastRecord r = BlastStore.read(m);
         UxoRecord u = BlastStore.readUxo(m);
+        NucRecord nr = BlastStore.readNuc(m);
         GeoPoint gp = m.getPoint();
-        if ((r == null && u == null) || gp == null || !gp.isValid())
+        if ((r == null && u == null && nr == null) || gp == null
+                || !gp.isValid())
             throw new IOException("not an incident");
         String name = BlastStore.nameOf(m);
         long now = System.currentTimeMillis();
@@ -88,18 +91,24 @@ public final class Exporter {
                 break;
             }
             case KMZ:
-                writeZip(out, u != null
-                        ? Exports.kmzUxo(name, gp.getLatitude(),
-                                gp.getLongitude(), u)
-                        : Exports.kmz(in));
+                writeZip(out, nr != null
+                        ? Exports.kmzNuc(name, gp.getLatitude(),
+                                gp.getLongitude(), nr)
+                        : u != null
+                                ? Exports.kmzUxo(name, gp.getLatitude(),
+                                        gp.getLongitude(), u)
+                                : Exports.kmz(in));
                 break;
             case GPX:
             default: {
                 try (OutputStream os = IOProviderFactory.getOutputStream(out)) {
-                    String gpx = u != null
-                            ? Exports.gpxUxo(name, gp.getLatitude(),
-                                    gp.getLongitude(), u, now)
-                            : Exports.gpx(in, now);
+                    String gpx = nr != null
+                            ? Exports.gpxNuc(name, gp.getLatitude(),
+                                    gp.getLongitude(), nr, now)
+                            : u != null
+                                    ? Exports.gpxUxo(name, gp.getLatitude(),
+                                            gp.getLongitude(), u, now)
+                                    : Exports.gpx(in, now);
                     os.write(gpx.getBytes("UTF-8"));
                 }
                 break;

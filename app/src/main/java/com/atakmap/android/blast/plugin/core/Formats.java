@@ -96,6 +96,21 @@ public final class Formats {
         return thousands(ft) + " ft (" + thousands(m) + " m)";
     }
 
+    /**
+     * Up to two decimals with trailing zeros dropped, no separators:
+     * 0.1 → "0.1", 15 → "15", 24.8 → "24.8", 0.25 → "0.25", 20000 → "20000".
+     */
+    public static String decimalTrim(double v) {
+        long hundredths = Math.round(v * 100.0);
+        long whole = hundredths / 100;
+        long frac = Math.abs(hundredths % 100);
+        if (frac == 0)
+            return Long.toString(whole);
+        if (frac % 10 == 0)
+            return whole + "." + (frac / 10);
+        return whole + "." + (frac < 10 ? "0" : "") + frac;
+    }
+
     /** One decimal below 100, whole numbers with separators above. */
     static String decimal(double v) {
         if (v >= 100)

@@ -19,6 +19,7 @@ public final class Names {
 
     private static final Pattern NUMBER = Pattern.compile("^BLAST (\\d{1,6})\\b");
     private static final Pattern UXO_NUMBER = Pattern.compile("^UXO (\\d{1,6})\\b");
+    private static final Pattern NUC_NUMBER = Pattern.compile("^NUC (\\d{1,6})\\b");
 
     /** Default name for a new incident: "BLAST 3 SUV/Van". */
     public static String initial(int number, String rowLabel) {
@@ -33,6 +34,16 @@ public final class Names {
     /** "UXO 2 ..." → 2; 0 if the name doesn't start that way. */
     public static int uxoNumberIn(String name) {
         return number(UXO_NUMBER, name);
+    }
+
+    /** Default name for a new nuclear reference incident: "NUC 1 10 kt". */
+    public static String initialNuc(int number, String yieldLabel) {
+        return "NUC " + number + " " + yieldLabel;
+    }
+
+    /** "NUC 1 ..." → 1; 0 if the name doesn't start that way. */
+    public static int nucNumberIn(String name) {
+        return number(NUC_NUMBER, name);
     }
 
     /** The name without the CLEARED suffix. */

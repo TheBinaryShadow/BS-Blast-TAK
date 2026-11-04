@@ -107,14 +107,20 @@ public final class Labels {
      */
     public static String mergeBlock(String existing, String block,
             String prefix) {
+        return mergeBlock(existing, block, prefix, REMARKS_END);
+    }
+
+    /** {@link #mergeBlock(String, String, String)} with another end marker. */
+    public static String mergeBlock(String existing, String block,
+            String prefix, String endMarker) {
         if (existing == null || existing.trim().isEmpty())
             return block;
         int start = existing.indexOf(prefix);
         if (start >= 0) {
-            int end = existing.indexOf(REMARKS_END, start);
+            int end = existing.indexOf(endMarker, start);
             if (end >= 0) {
                 String before = existing.substring(0, start);
-                String after = existing.substring(end + REMARKS_END.length());
+                String after = existing.substring(end + endMarker.length());
                 return before + block + after;
             }
         }

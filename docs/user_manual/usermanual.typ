@@ -76,8 +76,32 @@ Blast draws a hostile marker *UXO n* and one orange cordon circle. The card show
 ]
 
 #tak-slide[
+  = Nuclear detonation reference, new in 1.1
+For planning, training and "what would this mean here": choose *NUCLEAR DETONATION (reference / planning)* under New incident. It is a reference overlay, not a prediction of a real event.
++ *Yield:* type kilotons or megatons (0.1 kt to 20 Mt), or pick *FEMA scenarios* (0.1, 1, 10 kT), *Fielded weapons* (public, unofficial estimates such as US W76-1 90 kt or China DF-41 425 kt; ranges use the upper value), *Historical* (Hiroshima, Nagasaki, Castle Bravo) or *By yield*.
++ *Burst:* *Unknown* (recommended: the worst case of both), *Surface* or *Air*. Blast never asks for or shows a burst height: air-burst rings are the farthest each effect reaches over all heights.
++ *Wind (optional):* the direction the wind blows *from* (degrees true) and its speed. With a wind, surface and unknown bursts get idealized fallout contours downwind.
++ *Place ground zero:* tap the map, map center or a marker.
+
+Blast draws FEMA's red *Severe*, orange *Moderate* and yellow *Light Damage Zones*, a dashed cyan *burn* ring (second-degree burns to bare skin, clear day), a blue *initial radiation* ring (100 rad outdoors), a dotted 50-mile *Get Inside* ring and purple fallout outlines (1,000 / 100 / 10 R/h at H+1).
+
+= The nuclear card
+- *Do now* comes first: *Get Inside, Stay Inside, Stay Tuned*: a basement or the middle of a large, dense building, for 12–24 hours unless told otherwise. Fallout will likely take 10 minutes or more to arrive.
+- *YOU:* the zone you are in, whether you are inside a fallout contour and roughly when fallout could arrive. *Team:* how many contacts are inside the damage zones or a fallout contour.
+- Each ring's distance and meaning, the fallout direction, *Add / Change wind…*, the basis, caveats and source. Never sent automatically; *Mark cleared* marks it *ENDED*.
+]
+
+#tak-slide[
+  = Nuclear rings: basis and limits
+- Damage zones: FEMA Planning Guidance 3rd ed. (2022): about 0.5 / 1 / 3 miles for a 10 kT ground-level detonation, growing about twofold per tenfold yield. Air bursts: times 1.58 / 1.67 / 2.0 (Glasstone & Dolan Fig. 3.73c, the light-zone ratio extends Glasstone's 1 psi curve).
+- Burns: Glasstone Fig. 12.64 (most sensitive skin, 50%) and Fig. 7.42 (12-mile visibility); surface bursts deliver about half the heat. Initial radiation: Figs. 8.33 and 8.64, Table 8.37. Fallout: Table 9.93, idealized, 100% fission.
+- Cross-checks: the burn and radiation rings match FEMA's Fig. 7 (for 10 kT about 1 mile each).
+- Accuracy: blast ±20%, burns ±25%, radiation a factor of 0.5–2. Fallout follows the winds aloft; rain or snow can make hot spots anywhere. Only a meter tells you the dose rate. Follow official instructions.
+]
+
+#tak-slide[
   = The Reference tab
-Offline: what to do if you find something (Recognize, Retreat, Report), the minefield and vehicle drills, radios and phones (only outside the cordon, never within 50 m), marking, what each type looks like, what the rings mean (with DoD fragment-distance comparisons), how responders work (5-Cs, 9-line priorities), IMAS terms and all sources. Set your *emergency number* (911, 112, 101/102, a mine action centre) at the top.
+Offline: what to do if you find something (Recognize, Retreat, Report), the minefield and vehicle drills, radios and phones (only outside the cordon, never within 50 m), marking, what each type looks like, what the rings mean (with DoD fragment-distance comparisons), how responders work (5-Cs, 9-line priorities), IMAS terms and all sources; for nuclear incidents FEMA's protective actions, what each ring means, shelter protection factors (LLNL), fallout decay (the 7-10 rule), dose effects and the yield sources. Set your *emergency number* (911, 112, 101/102, a mine action centre) at the top.
 
 = UXO caveats
 - The cordon is a *minimum* for people in the open while the item is left alone. ATP 4-32.2 warns that fragments may travel farther; DoD's maximum fragment ranges are larger (about 820 m for a 155 mm shell).

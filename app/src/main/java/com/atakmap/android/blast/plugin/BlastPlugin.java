@@ -8,6 +8,7 @@ import com.atakmap.android.blast.plugin.atak.BlastDetailHandler;
 import com.atakmap.android.blast.plugin.atak.BlastMenuHandler;
 import com.atakmap.android.blast.plugin.atak.BlastStore;
 import com.atakmap.android.blast.plugin.atak.Sharing;
+import com.atakmap.android.blast.plugin.atak.NucDetailHandler;
 import com.atakmap.android.blast.plugin.atak.UxoDetailHandler;
 import com.atakmap.android.blast.plugin.ui.BlastPane;
 import com.atakmap.android.cot.detail.CotDetailManager;
@@ -48,6 +49,7 @@ public final class BlastPlugin implements IPlugin {
     private Sharing sharing;
     private BlastDetailHandler detailHandler;
     private UxoDetailHandler uxoHandler;
+    private NucDetailHandler nucHandler;
     private BlastMenuHandler menuHandler;
     private MapEventDispatcher.MapEventDispatchListener removeListener;
 
@@ -113,6 +115,19 @@ public final class BlastPlugin implements IPlugin {
             CotDetailManager.getInstance().registerHandler(uxoHandler);
         } catch (RuntimeException e) {
             Log.e(TAG, "UXO detail handler registration failed", e);
+        }
+        try {
+            nucHandler = new NucDetailHandler(store);
+            nucHandler.setOnChange(new Runnable() {
+                @Override
+                public void run() {
+                    if (controller != null)
+                        controller.onShow();
+                }
+            });
+            CotDetailManager.getInstance().registerHandler(nucHandler);
+        } catch (RuntimeException e) {
+            Log.e(TAG, "nuclear detail handler registration failed", e);
         }
 
         try {
@@ -202,6 +217,15 @@ public final class BlastPlugin implements IPlugin {
             }
             uxoHandler.dispose();
             uxoHandler = null;
+        }
+        if (nucHandler != null) {
+            try {
+                CotDetailManager.getInstance().unregisterHandler(nucHandler);
+            } catch (RuntimeException e) {
+                Log.e(TAG, "nuclear detail handler unregister failed", e);
+            }
+            nucHandler.dispose();
+            nucHandler = null;
         }
         if (removeListener != null && mapView != null) {
             mapView.getMapEventDispatcher().removeMapEventListener(

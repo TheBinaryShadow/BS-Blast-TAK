@@ -33,9 +33,23 @@ Prevention and FBI Counter-IED Unit, edition "As of Aug 2025"):
   minefield / vehicle) for the right movement drill, place it by map tap
   or range and bearing; one orange cordon, DO NOW list, EOD 9-line report
   saved on the incident; never auto-sent
+- Nuclear detonation reference (1.1+): a planning / training overlay,
+  not a prediction. Type any yield (0.1 kt-20 Mt) or pick a FEMA
+  scenario, a historical event or a fielded weapon (public, unofficial
+  yield estimates, cited); choose Unknown / Surface / Air burst (no burst
+  height is ever asked or shown: air rings are outer envelopes). Draws
+  FEMA's Severe / Moderate / Light Damage Zones (0.5 / 1 / 3 mi at 10 kT,
+  cube-root scaled), second-degree burns to bare skin, 100 rad initial
+  radiation, FEMA's 50-mile Get Inside area and, with a wind, idealized
+  Glasstone Table 9.93 fallout contours (1,000 / 100 / 10 R/h at H+1).
+  The card leads with "Get Inside, Stay Inside, Stay Tuned", says which
+  zone and fallout contour you and your team are in, and estimates
+  fallout arrival; never auto-sent
 - Reference tab (offline): safety rules, minefield and vehicle drills,
   radio rule, marking, recognition, what the rings mean, 5-Cs, IMAS terms,
-  sources; settable emergency number
+  sources; nuclear protective actions, ring basis, shelter protection
+  factors, fallout decay, dose effects, yield sources; settable
+  emergency number
 
 Feet are the card's own unit; metres are those published for the same
 table in ERG2024 p. 367 (High Explosives, TNT equivalent). Rings are drawn
@@ -46,10 +60,14 @@ or department procedures.
 _________________________________________________________________
 STATUS
 
-1.1 (Nov 2026, in testing): UXO mode and Reference tab (see above).
-Sources verified: ATP 4-32.2 (01 Mar 2024, Distribution A) Fig. 31 and
-Table 1; DESR 6055.09 Ed.1 Ch.2 (Nov 2025); UNMAS Safety Handbook (3rd
-ed.); IMAS (as of 1 May 2026). Research notes: docs/UXO-RESEARCH.md.
+1.1 (Nov 2026, in testing): UXO mode, nuclear detonation reference mode
+and Reference tab (see above). Sources verified: ATP 4-32.2 (01 Mar 2024,
+Distribution A) Fig. 31 and Table 1; DESR 6055.09 Ed.1 Ch.2 (Nov 2025);
+UNMAS Safety Handbook (3rd ed.); IMAS (as of 1 May 2026); FEMA Planning
+Guidance for Response to a Nuclear Detonation 3rd ed. (2022); Glasstone &
+Dolan 1977 (figures digitized at 300 dpi, see docs/NUCLEAR-MODEL.md);
+LLNL-TR-410067. Research notes: docs/UXO-RESEARCH.md,
+docs/NUCLEAR-MODEL.md.
 1.0 (Oct 2026): first public release. Same code as 0.9; see
 docs/AUDIT.md for the pre-release audit.
 0.9 (Oct 2026): fixes an ATAK crash when opening the radial menu on a
@@ -135,6 +153,16 @@ DEVELOPER NOTES
    st="ACTIVE|CLEARED" n="1" r_n="" r_desc="" r_land="" r_emp=""
    r_cbrn="" r_res="" r_imp="" r_prot="" r_pri="" r_poc=""/>
   For the known edition the cordon is recomputed from cat/multi/large.
+- Nuclear reference incidents (1.1+): detail <__blast_nuc/>, circles
+  <marker>.sdz .mdz .ldz .burn .rad .gi (anchored) and, with a wind,
+  closed shapes <marker>.fo1000 .fo100 .fo10 (redrawn when the marker
+  moves):
+  <__blast_nuc v="1" mdl="BLAST-NUC" ed="2026-11" y_kt="10"
+   burst="SURFACE|AIR|UNKNOWN" pre="FEMA_10" plbl="..." wfrom="270"
+   wmph="15" by="..." t="..." st="ACTIVE|CLEARED" n="1" sdz_m="805"
+   mdz_m="1609" ldz_m="4828" burn_m="..." rad_m="..."/>
+  For the known model every radius is recomputed from y_kt and burst
+  (core/NucModel, golden-tested against FEMA and Glasstone statements).
 
 _________________________________________________________________
 ACKNOWLEDGMENTS
@@ -148,6 +176,17 @@ ACKNOWLEDGMENTS
   paraphrased; IMAS 04.10 definitions quoted: "Used and reproduced with
   permission of the United Nations."
 - USAF AFVA 32-4022 UXO Recognition and Reporting Chart (2015); US DoD 3Rs.
+- FEMA, Planning Guidance for Response to a Nuclear Detonation, 3rd ed.
+  (2022) and Communicating in the Immediate Aftermath, 2nd ed. (2024).
+- Glasstone & Dolan, The Effects of Nuclear Weapons, 3rd ed. (US DoD /
+  DOE, 1977): Figs. 3.73c, 7.42, 8.33a/b, 8.64a/b, 12.64; Tables 7.101,
+  8.37, 9.93.
+- Buddemeier & Dillon, Key Response Planning Factors for the Aftermath
+  of Nuclear Terrorism, LLNL-TR-410067 (2009).
+- Yield presets: FAS / Bulletin of the Atomic Scientists Nuclear Notebook
+  (US 2025, Russia 2026, China 2026, UK 2024, India 2026, Pakistan 2023,
+  North Korea 2024), SIPRI Yearbook 2023 (France), LANL LA-8819; cited,
+  not copied.
 - 2024 Emergency Response Guidebook (PHMSA, Transport Canada, SCT,
   CIQUIME), pp. 154-155, 158-159, 359, 367-368.
 - Blast is not endorsed by any of these agencies.

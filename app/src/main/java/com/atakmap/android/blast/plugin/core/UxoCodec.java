@@ -183,7 +183,7 @@ public final class UxoCodec {
         return sb.toString().trim();
     }
 
-    private static boolean isName(String s) {
+    static boolean isName(String s) {
         if (s == null || s.isEmpty() || s.length() > 32)
             return false;
         for (int i = 0; i < s.length(); i++) {

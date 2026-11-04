@@ -231,6 +231,124 @@ public final class Exports {
         return sb.toString();
     }
 
+    /** KML colour (aabbggrr) from ARGB. */
+    static String kmlColor(int argb) {
+        int a = (argb >>> 24) & 0xff, r = (argb >>> 16) & 0xff,
+                g = (argb >>> 8) & 0xff, b = argb & 0xff;
+        return hex2(a) + hex2(b) + hex2(g) + hex2(r);
+    }
+
+    private static String hex2(int v) {
+        String h = Integer.toHexString(v);
+        return h.length() < 2 ? "0" + h : h;
+    }
+
+    /** Nuclear ring colours (ARGB, as drawn on the map). */
+    static final int[][] NUC_STYLE = {
+            { 0xFFB71C1C, 0x40B71C1C }, { 0xFFFF6D00, 0x30FF6D00 },
+            { 0xFFFFD600, 0x1AFFD600 }, { 0xFF00B8D4, 0x00000000 },
+            { 0xFF536DFE, 0x00000000 }, { 0xFFE0E0E0, 0x00000000 } };
+    static final int[][] NUC_FO_STYLE = { { 0xFF6A1B9A, 0x456A1B9A },
+            { 0xFF9C27B0, 0x339C27B0 }, { 0xFFCE93D8, 0x22CE93D8 } };
+
+    /** KML for a nuclear reference incident: rings, fallout and the point. */
+    public static String kmlNuc(String name, double lat, double lon,
+            NucRecord r) {
+        String nm = name == null || name.isEmpty() ? "NUC" : name;
+        boolean grey = r.isCleared();
+        StringBuilder sb = new StringBuilder();
+        sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+        sb.append("<kml xmlns=\"http://www.opengis.net/kml/2.2\">\n<Document>\n");
+        tag(sb, "name", nm);
+        tag(sb, "description", NucText.remarks(r));
+        NucText.Ring[] rings = NucText.Ring.values();
+        for (int i = 0; i < rings.length; i++)
+            style(sb, "ring" + i, grey ? "ff9e9e9e" : kmlColor(NUC_STYLE[i][0]),
+                    grey ? "149e9e9e" : kmlColor(NUC_STYLE[i][1]), 3, null);
+        for (int i = 0; i < NUC_FO_STYLE.length; i++)
+            style(sb, "fo" + i, grey ? "ff9e9e9e"
+                    : kmlColor(NUC_FO_STYLE[i][0]), grey ? "149e9e9e"
+                            : kmlColor(NUC_FO_STYLE[i][1]), 2, null);
+        style(sb, "gz", null, null, 0, grey ? "ff9e9e9e" : "ff1c1cb7");
+        sb.append("<Folder>\n");
+        tag(sb, "name", nm);
+        for (int i = rings.length - 1; i >= 0; i--) {
+            sb.append("<Placemark>\n");
+            tag(sb, "name", NucText.ringTitle(r, rings[i]));
+            tag(sb, "description", NucText.meaning(rings[i]));
+            sb.append("<styleUrl>#ring").append(i)
+                    .append("</styleUrl>\n<Polygon>\n<outerBoundaryIs>");
+            linearRing(sb, Geo.ring(lat, lon, rings[i].radiusM(r)));
+            sb.append("</outerBoundaryIs>\n</Polygon>\n</Placemark>\n");
+        }
+        int[] rates = NucModel.FALLOUT_RATES;
+        for (int i = 0; i < rates.length; i++) {
+            double[][] fo = NucGeo.fallout(r, rates[i], lat, lon);
+            if (fo == null)
+                continue;
+            double[][] closed = java.util.Arrays.copyOf(fo, fo.length + 1);
+            closed[fo.length] = fo[0];
+            sb.append("<Placemark>\n");
+            tag(sb, "name", NucText.falloutTitle(r, rates[i]));
+            sb.append("<styleUrl>#fo").append(i)
+                    .append("</styleUrl>\n<Polygon>\n<outerBoundaryIs>");
+            linearRing(sb, closed);
+            sb.append("</outerBoundaryIs>\n</Polygon>\n</Placemark>\n");
+        }
+        sb.append("<Placemark>\n");
+        tag(sb, "name", nm);
+        tag(sb, "description", NucText.remarks(r));
+        sb.append("<styleUrl>#gz</styleUrl>\n<Point><coordinates>")
+                .append(coord(lon)).append(',').append(coord(lat))
+                .append(",0</coordinates></Point>\n</Placemark>\n");
+        sb.append("</Folder>\n</Document>\n</kml>\n");
+        return sb.toString();
+    }
+
+    public static Map<String, byte[]> kmzNuc(String name, double lat,
+            double lon, NucRecord r) {
+        Map<String, byte[]> files = new LinkedHashMap<>();
+        files.put("doc.kml", kmlNuc(name, lat, lon, r).getBytes(UTF8));
+        return files;
+    }
+
+    /** GPX for a nuclear reference incident: a waypoint and tracks. */
+    public static String gpxNuc(String name, double lat, double lon,
+            NucRecord r, long nowMillis) {
+        String nm = name == null || name.isEmpty() ? "NUC" : name;
+        StringBuilder sb = new StringBuilder();
+        sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+        sb.append("<gpx version=\"1.1\" creator=\"Blast for ATAK\" "
+                + "xmlns=\"http://www.topografix.com/GPX/1/1\">\n");
+        sb.append("<metadata>");
+        tagInline(sb, "name", nm);
+        tagInline(sb, "desc", NucText.basis(r));
+        tagInline(sb, "time", Formats.iso(nowMillis));
+        sb.append("</metadata>\n");
+        sb.append("<wpt lat=\"").append(coord(lat)).append("\" lon=\"")
+                .append(coord(lon)).append("\">");
+        tagInline(sb, "name", nm);
+        tagInline(sb, "cmt", NucText.threat(r));
+        tagInline(sb, "desc", NucText.remarks(r));
+        tagInline(sb, "sym", GPX_SYMBOL);
+        sb.append("</wpt>\n");
+        String base = Names.base(nm);
+        for (NucText.Ring ring : NucText.Ring.values())
+            track(sb, base + " " + ring.label, NucText.ringTitle(r, ring),
+                    Geo.ring(lat, lon, ring.radiusM(r)));
+        for (int rate : NucModel.FALLOUT_RATES) {
+            double[][] fo = NucGeo.fallout(r, rate, lat, lon);
+            if (fo == null)
+                continue;
+            double[][] closed = java.util.Arrays.copyOf(fo, fo.length + 1);
+            closed[fo.length] = fo[0];
+            track(sb, base + " fallout " + rate + " R/h H+1",
+                    NucText.falloutTitle(r, rate), closed);
+        }
+        sb.append("</gpx>\n");
+        return sb.toString();
+    }
+
     // ------------------------------------------------------------------
     // GPX 1.1
 

@@ -8,19 +8,28 @@ import com.atakmap.android.blast.plugin.core.BlastRecord;
 import com.atakmap.android.blast.plugin.core.StandoffRow;
 import com.atakmap.android.blast.plugin.core.Labels;
 import com.atakmap.android.blast.plugin.core.Names;
+import com.atakmap.android.blast.plugin.core.NucCodec;
+import com.atakmap.android.blast.plugin.core.NucGeo;
+import com.atakmap.android.blast.plugin.core.NucModel;
+import com.atakmap.android.blast.plugin.core.NucRecord;
+import com.atakmap.android.blast.plugin.core.NucText;
 import com.atakmap.android.blast.plugin.core.UxoCodec;
 import com.atakmap.android.blast.plugin.core.UxoRecord;
 import com.atakmap.android.blast.plugin.core.UxoText;
 import com.atakmap.android.drawing.DrawingToolsMapComponent;
 import com.atakmap.android.drawing.mapItems.DrawingCircle;
+import com.atakmap.android.drawing.mapItems.DrawingShape;
 import com.atakmap.android.maps.MapGroup;
 import com.atakmap.android.maps.MapItem;
 import com.atakmap.android.maps.MapView;
 import com.atakmap.android.maps.Marker;
+import com.atakmap.android.maps.PointMapItem;
+import com.atakmap.android.maps.Shape;
 import com.atakmap.android.user.PlacePointTool;
 import com.atakmap.android.util.ATAKUtilities;
 import com.atakmap.coremap.log.Log;
 import com.atakmap.coremap.maps.coords.GeoPoint;
+import com.atakmap.coremap.maps.coords.GeoPointMetaData;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,6 +48,10 @@ import gov.tak.api.util.AttributeSet;
  * </ul>
  * A UXO incident (1.1+) is the same kind of marker carrying the
  * {@code __blast_uxo} detail and one circle, {@code <uid>.cordon} (orange).
+ * A nuclear reference incident (1.1+) carries {@code __blast_nuc} and up to
+ * six circles ({@code .sdz .mdz .ldz .burn .rad .gi}) plus, with a wind,
+ * three fallout outlines ({@code .fo1000 .fo100 .fo10}) that are redrawn
+ * when the marker moves.
  * Ring UIDs are derived from the marker UID, so every client agrees on them
  * and updates merge. The rings are anchored to the marker (CoT
  * {@code p-p-CenterAnchor}), so moving the marker moves them everywhere.
@@ -51,6 +64,8 @@ public final class BlastStore {
     public static final String META = "blast.data";
     /** Marker metadata: a UXO record as {@code <__blast_uxo .../>} XML. */
     public static final String META_UXO = "blast.uxo";
+    /** Marker metadata: a nuclear record as {@code <__blast_nuc .../>} XML. */
+    public static final String META_NUC = "blast.nuc";
     /** Marker metadata flag for fast lookup (both kinds). */
     public static final String META_FLAG = "blast.zone";
     /** Ring metadata: owning marker UID. */
@@ -63,8 +78,19 @@ public final class BlastStore {
     public static final String MAND_SUFFIX = ".mand";
     public static final String PREF_SUFFIX = ".pref";
     public static final String CORDON_SUFFIX = ".cordon";
-    private static final String[] SUFFIXES = { MAND_SUFFIX, PREF_SUFFIX,
-            CORDON_SUFFIX };
+    private static final String[] SUFFIXES = buildSuffixes();
+
+    private static String[] buildSuffixes() {
+        List<String> l = new ArrayList<>();
+        l.add(PREF_SUFFIX);
+        l.add(MAND_SUFFIX);
+        l.add(CORDON_SUFFIX);
+        for (NucText.Ring r : NucText.Ring.values())
+            l.add(r.suffix);
+        for (int rate : NucModel.FALLOUT_RATES)
+            l.add(NucText.falloutSuffix(rate));
+        return l.toArray(new String[0]);
+    }
 
     static final int RED = 0xFFD50000;
     static final int RED_FILL = 0x55D50000;
@@ -75,6 +101,16 @@ public final class BlastStore {
     /** UXO cordon: dark orange, distinct from the IED card's colours. */
     static final int ORANGE = 0xFFE65100;
     static final int ORANGE_FILL = 0x40E65100;
+    /** Nuclear rings: FEMA's red / orange / yellow zones. */
+    static final int NUC_SDZ = 0xFFB71C1C, NUC_SDZ_FILL = 0x40B71C1C;
+    static final int NUC_MDZ = 0xFFFF6D00, NUC_MDZ_FILL = 0x30FF6D00;
+    static final int NUC_LDZ = 0xFFFFD600, NUC_LDZ_FILL = 0x1AFFD600;
+    static final int NUC_BURN = 0xFF00B8D4;
+    static final int NUC_RAD = 0xFF536DFE;
+    static final int NUC_GI = 0xFFE0E0E0;
+    static final int[] NUC_FO = { 0xFF6A1B9A, 0xFF9C27B0, 0xFFCE93D8 };
+    static final int[] NUC_FO_FILL = { 0x456A1B9A, 0x339C27B0, 0x22CE93D8 };
+    static final int NO_FILL = 0x00000000;
 
 
     private final MapView mapView;
@@ -134,7 +170,12 @@ public final class BlastStore {
 
     /** True for an incident marker of either kind. */
     public static boolean isIncident(MapItem mi) {
-        return read(mi) != null || readUxo(mi) != null;
+        return read(mi) != null || readUxo(mi) != null || readNuc(mi) != null;
+    }
+
+    /** True for a nuclear reference incident marker. */
+    public static boolean isNuc(MapItem mi) {
+        return readNuc(mi) != null;
     }
 
     /** True for a UXO incident marker. */
@@ -180,6 +221,11 @@ public final class BlastStore {
     /** Store a UXO record (see {@link #store(MapItem, String)}). */
     static void storeUxo(MapItem item, String xml) {
         store(item, xml, META_UXO, UxoCodec.DETAIL);
+    }
+
+    /** Store a nuclear record (see {@link #store(MapItem, String)}). */
+    static void storeNuc(MapItem item, String xml) {
+        store(item, xml, META_NUC, NucCodec.DETAIL);
     }
 
     private static void store(MapItem item, String xml, String meta,
@@ -255,9 +301,36 @@ public final class BlastStore {
         return null;
     }
 
-    /** True for one of our rings. */
+    /** The nuclear record on a marker; null if none (adopts the opaque copy). */
+    public static NucRecord readNuc(MapItem item) {
+        if (!(item instanceof Marker))
+            return null;
+        try {
+            String xml = item.getMetaString(META_NUC, null);
+            if (xml != null) {
+                NucRecord r = NucCodec.fromXml(xml);
+                if (r != null)
+                    return r;
+            }
+            AttributeSet opaque = item.getMetaAttributeSet(OPAQUE);
+            if (opaque != null && opaque.containsAttribute(NucCodec.DETAIL)) {
+                String s = opaque.getStringAttribute(NucCodec.DETAIL, null);
+                NucRecord r = NucCodec.fromXml(s);
+                if (r != null) {
+                    item.setMetaString(META_NUC, NucCodec.toXml(r));
+                    item.setMetaBoolean(META_FLAG, true);
+                    return r;
+                }
+            }
+        } catch (RuntimeException e) {
+            Log.w(TAG, "unreadable nuclear data on " + item.getUID(), e);
+        }
+        return null;
+    }
+
+    /** True for one of our rings or fallout outlines. */
     public static boolean isRing(MapItem item) {
-        if (!(item instanceof DrawingCircle))
+        if (!(item instanceof DrawingCircle) && !(item instanceof DrawingShape))
             return false;
         String uid = item.getUID();
         return uid != null && suffixOf(uid) != null
@@ -270,7 +343,7 @@ public final class BlastStore {
             return null;
         if (item instanceof Marker && isIncident(item))
             return (Marker) item;
-        if (item instanceof DrawingCircle) {
+        if (item instanceof DrawingCircle || item instanceof DrawingShape) {
             String parent = item.getMetaString(META_PARENT, null);
             if (parent == null) {
                 String uid = item.getUID();
@@ -303,6 +376,7 @@ public final class BlastStore {
             for (MapItem mi : mapView.getRootGroup().getAllItems()) {
                 if (mi instanceof Marker && isLive(mi)
                         && (mi.hasMetaValue(META) || mi.hasMetaValue(META_UXO)
+                                || mi.hasMetaValue(META_NUC)
                                 || mi.hasMetaValue(OPAQUE))
                         && isIncident(mi)
                         && found.put(mi.getUID(), (Marker) mi) == null)
@@ -320,6 +394,7 @@ public final class BlastStore {
                             if (item instanceof Marker
                                     && (item.hasMetaValue(META)
                                             || item.hasMetaValue(META_UXO)
+                                            || item.hasMetaValue(META_NUC)
                                             || item.hasMetaValue(OPAQUE))
                                     && isIncident(item))
                                 walked.add((Marker) item);
@@ -388,6 +463,9 @@ public final class BlastStore {
      * else the "BLAST n" at the start of the name (0.1-0.5 incidents).
      */
     public static int numberOf(Marker m) {
+        NucRecord n = readNuc(m);
+        if (n != null)
+            return Math.max(n.number, Names.nucNumberIn(nameOf(m)));
         UxoRecord u = readUxo(m);
         if (u != null)
             return Math.max(u.number, Names.uxoNumberIn(nameOf(m)));
@@ -400,7 +478,7 @@ public final class BlastStore {
     public int nextNumber() {
         int max = 0;
         for (Marker m : all())
-            if (!isUxo(m))
+            if (!isUxo(m) && !isNuc(m))
                 max = Math.max(max, numberOf(m));
         return max + 1;
     }
@@ -410,6 +488,15 @@ public final class BlastStore {
         int max = 0;
         for (Marker m : all())
             if (isUxo(m))
+                max = Math.max(max, numberOf(m));
+        return max + 1;
+    }
+
+    /** Next NUC number (own sequence). */
+    public int nextNucNumber() {
+        int max = 0;
+        for (Marker m : all())
+            if (isNuc(m))
                 max = Math.max(max, numberOf(m));
         return max + 1;
     }
@@ -461,6 +548,237 @@ public final class BlastStore {
         return m;
     }
 
+    /** Place a new nuclear reference incident; returns its marker. */
+    public Marker createNuc(GeoPoint at, NucRecord r) {
+        int number = nextNucNumber();
+        r = r.withNumber(number);
+        String name = Names.initialNuc(number, r.plainLabel());
+        String uid = UUID.randomUUID().toString();
+        Marker m = new PlacePointTool.MarkerCreator(at)
+                .setUid(uid)
+                .setType(MARKER_TYPE)
+                .setCallsign(name)
+                .showCotDetails(false)
+                .setShowNewRadial(false)
+                .setAllowDuplicativeNames(true)
+                .setArchive(true)
+                .placePoint();
+        if (m == null)
+            return null;
+        register(m.getUID());
+        writeNuc(m, r);
+        return m;
+    }
+
+    /** Store a nuclear record and bring its rings and labels up to date. */
+    public boolean writeNuc(Marker m, NucRecord r) {
+        if (!isLive(m)) {
+            Log.w(TAG, "not writing to removed incident " + m.getUID());
+            return false;
+        }
+        storeNuc(m, NucCodec.toXml(r));
+        String current = nameOf(m);
+        String wanted = Names.withStatus(current.isEmpty()
+                ? Names.initialNuc(Math.max(1, r.number), r.plainLabel())
+                : current, r.isCleared());
+        if (!wanted.equals(current))
+            setName(m, wanted);
+        m.setMetaString("remarks", NucText.mergeRemarks(
+                m.getMetaString("remarks", null), r));
+        ensureNuc(m, r);
+        m.persist(mapView.getMapEventDispatcher(), null, BlastStore.class);
+        return true;
+    }
+
+    /** Create or restyle a nuclear incident's circles and fallout outlines. */
+    public void ensureNuc(Marker m, NucRecord r) {
+        if (!isLive(m) || r == null)
+            return;
+        watch(m);
+        followMoves(m);
+        boolean grey = r.isCleared();
+        for (NucText.Ring ring : NucText.Ring.values()) {
+            int stroke, fill;
+            int line = Shape.BASIC_LINE_STYLE_SOLID;
+            double weight = 3d;
+            switch (ring) {
+                case SDZ:
+                    stroke = NUC_SDZ;
+                    fill = NUC_SDZ_FILL;
+                    break;
+                case MDZ:
+                    stroke = NUC_MDZ;
+                    fill = NUC_MDZ_FILL;
+                    break;
+                case LDZ:
+                    stroke = NUC_LDZ;
+                    fill = NUC_LDZ_FILL;
+                    break;
+                case BURN:
+                    stroke = NUC_BURN;
+                    fill = NO_FILL;
+                    line = Shape.BASIC_LINE_STYLE_DASHED;
+                    break;
+                case RAD:
+                    stroke = NUC_RAD;
+                    fill = NO_FILL;
+                    break;
+                default:
+                    stroke = NUC_GI;
+                    fill = NO_FILL;
+                    line = Shape.BASIC_LINE_STYLE_DOTTED;
+                    weight = 2d;
+            }
+            if (grey) {
+                stroke = GREY;
+                fill = fill == NO_FILL ? NO_FILL : GREY_FILL;
+            }
+            circle(m, ring.suffix, ring.radiusM(r),
+                    NucText.ringTitle(r, ring), stroke, fill, line, weight);
+        }
+        ensureFallout(m, r);
+    }
+
+    /** Draw, move or remove the fallout outlines to match the record. */
+    void ensureFallout(Marker m, NucRecord r) {
+        GeoPoint gz = m.getPoint();
+        boolean draw = r.drawsFallout() && gz != null && gz.isValid();
+        for (int i = 0; i < NucModel.FALLOUT_RATES.length; i++) {
+            int rate = NucModel.FALLOUT_RATES[i];
+            String uid = m.getUID() + NucText.falloutSuffix(rate);
+            MapItem existing = liveItem(uid);
+            if (!draw) {
+                if (existing != null)
+                    removePart(existing);
+                continue;
+            }
+            DrawingShape sh;
+            boolean added = false;
+            if (existing instanceof DrawingShape) {
+                sh = (DrawingShape) existing;
+            } else if (existing != null) {
+                Log.w(TAG, "uid " + uid + " is not a shape; not drawing");
+                continue;
+            } else {
+                sh = new DrawingShape(mapView, uid);
+                ATAKUtilities.setAuthorInformation(sh);
+                intendedRemovals.remove(uid);
+                added = true;
+            }
+            double[][] ll = NucGeo.fallout(r, rate, gz.getLatitude(),
+                    gz.getLongitude());
+            if (ll == null)
+                continue;
+            GeoPointMetaData[] pts = new GeoPointMetaData[ll.length];
+            for (int k = 0; k < ll.length; k++)
+                pts[k] = GeoPointMetaData.wrap(new GeoPoint(ll[k][0], ll[k][1]));
+            sh.setPoints(pts);
+            sh.setClosed(true);
+            sh.setMetaString(META_PARENT, m.getUID());
+            sh.setMetaBoolean("editable", false);
+            sh.setMovable(false);
+            sh.setTitle(NucText.falloutTitle(r, rate));
+            sh.setStrokeColor(r.isCleared() ? GREY : NUC_FO[i]);
+            sh.setFillColor(r.isCleared() ? GREY_FILL : NUC_FO_FILL[i]);
+            sh.setStrokeWeight(2d);
+            if (added) {
+                MapGroup g = DrawingToolsMapComponent.getGroup();
+                if (g == null)
+                    g = mapView.getRootGroup();
+                g.addItem(sh);
+            }
+            sh.persist(mapView.getMapEventDispatcher(), null, BlastStore.class);
+            watch(sh);
+        }
+    }
+
+    /** Remove one part on purpose, without deleting the whole incident. */
+    private void removePart(MapItem item) {
+        watched.remove(item);
+        item.removeOnGroupChangedListener(groupWatcher);
+        // The plugin's ITEM_REMOVED listener also sees this removal; it must
+        // not be taken as a delete of the whole incident.
+        intendedRemovals.add(item.getUID());
+        item.removeFromGroup();
+    }
+
+    /** UIDs removed on purpose (see {@link #removePart}). */
+    private final java.util.Set<String> intendedRemovals = java.util.Collections
+            .newSetFromMap(new java.util.concurrent.ConcurrentHashMap<String, Boolean>());
+
+    /** Markers whose fallout follows them when moved. */
+    private final java.util.Set<PointMapItem> following = java.util.Collections
+            .synchronizedSet(java.util.Collections.newSetFromMap(
+                    new java.util.WeakHashMap<PointMapItem, Boolean>()));
+
+    private void followMoves(Marker m) {
+        if (following.add(m))
+            m.addOnPointChangedListener(moveWatcher);
+    }
+
+    private final PointMapItem.OnPointChangedListener moveWatcher =
+            new PointMapItem.OnPointChangedListener() {
+                @Override
+                public void onPointChanged(final PointMapItem item) {
+                    main.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                if (item instanceof Marker && isLive(item)) {
+                                    NucRecord r = readNuc(item);
+                                    if (r != null)
+                                        ensureFallout((Marker) item, r);
+                                }
+                            } catch (RuntimeException e) {
+                                Log.e(TAG, "fallout redraw failed", e);
+                            }
+                        }
+                    });
+                }
+            };
+
+    /** One anchored, read-only circle. */
+    private void circle(Marker m, String suffix, double radiusM, String title,
+            int stroke, int fill, int lineStyle, double weight) {
+        String uid = m.getUID() + suffix;
+        MapItem existing = liveItem(uid);
+        DrawingCircle c;
+        boolean added = false;
+        if (existing instanceof DrawingCircle) {
+            c = (DrawingCircle) existing;
+        } else if (existing != null) {
+            Log.w(TAG, "uid " + uid + " is not a circle; not drawing ring");
+            return;
+        } else {
+            c = new DrawingCircle(mapView, uid);
+            ATAKUtilities.setAuthorInformation(c);
+            c.setCenterMarker(m);
+            added = true;
+        }
+        c.setMetaString(META_PARENT, m.getUID());
+        c.setMetaBoolean("editable", false);
+        c.setMovable(false);
+        if (Math.abs(c.getRadius() - radiusM) > 0.01)
+            c.setRadius(radiusM);
+        c.setTitle(title);
+        c.setStrokeColor(stroke);
+        c.setFillColor(fill);
+        c.setStrokeWeight(weight);
+        c.setBasicLineStyle(lineStyle);
+        if (c.getCenterMarker() != m)
+            c.setCenterMarker(m);
+        if (added) {
+            MapGroup g = DrawingToolsMapComponent.getGroup();
+            if (g == null)
+                g = mapView.getRootGroup();
+            g.addItem(c);
+            if (c.getCenterMarker() != m)
+                c.setCenterMarker(m);
+        }
+        c.persist(mapView.getMapEventDispatcher(), null, BlastStore.class);
+        watch(c);
+    }
+
     /**
      * Store a UXO record on its marker and bring the cordon and labels up
      * to date. False (and nothing changed) if the marker is gone.
@@ -486,6 +804,11 @@ public final class BlastStore {
 
     /** Draw or update whatever the incident needs (either kind). */
     public void ensureAll(Marker m) {
+        NucRecord n = readNuc(m);
+        if (n != null) {
+            ensureNuc(m, n);
+            return;
+        }
         UxoRecord u = readUxo(m);
         if (u != null)
             ensureCordon(m, u);
@@ -531,6 +854,18 @@ public final class BlastStore {
      */
     public boolean rename(Marker m, String typed) {
         String clean = Names.sanitize(typed);
+        NucRecord nr = readNuc(m);
+        if (nr != null) {
+            if (clean == null || !isLive(m))
+                return false;
+            if (nr.number == 0) {
+                int n = numberOf(m);
+                if (n > 0)
+                    nr = nr.withNumber(n);
+            }
+            setName(m, Names.withStatus(clean, nr.isCleared()));
+            return writeNuc(m, nr);
+        }
         UxoRecord u = readUxo(m);
         if (u != null) {
             if (clean == null || !isLive(m))
@@ -675,15 +1010,11 @@ public final class BlastStore {
     public List<MapItem> items(Marker m) {
         List<MapItem> out = new ArrayList<>();
         out.add(m);
-        MapItem pref = liveItem(m.getUID() + PREF_SUFFIX);
-        if (pref != null)
-            out.add(pref);
-        MapItem mand = liveItem(m.getUID() + MAND_SUFFIX);
-        if (mand != null)
-            out.add(mand);
-        MapItem cordon = liveItem(m.getUID() + CORDON_SUFFIX);
-        if (cordon != null)
-            out.add(cordon);
+        for (String sfx : SUFFIXES) {
+            MapItem part = liveItem(m.getUID() + sfx);
+            if (part != null)
+                out.add(part);
+        }
         return out;
     }
 
@@ -765,6 +1096,8 @@ public final class BlastStore {
 
     /** Called when a zone marker or ring may have been deleted. */
     public void partRemoved(final String uid) {
+        if (uid != null && intendedRemovals.remove(uid))
+            return;
         main.postDelayed(new Runnable() {
             @Override
             public void run() {
@@ -788,5 +1121,12 @@ public final class BlastStore {
         }
         for (MapItem mi : items)
             mi.removeOnGroupChangedListener(groupWatcher);
+        List<PointMapItem> moving;
+        synchronized (following) {
+            moving = new ArrayList<>(following);
+            following.clear();
+        }
+        for (PointMapItem pm : moving)
+            pm.removeOnPointChangedListener(moveWatcher);
     }
 }

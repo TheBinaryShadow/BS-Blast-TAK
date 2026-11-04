@@ -41,7 +41,8 @@ Prevention and FBI Counter-IED Unit, edition "As of Aug 2025"):
   FEMA's Severe / Moderate / Light Damage Zones (0.5 / 1 / 3 mi at 10 kT,
   cube-root scaled), second-degree burns to bare skin, 100 rad initial
   radiation, FEMA's 50-mile Get Inside area and, with a wind, idealized
-  Glasstone Table 9.93 fallout contours (1,000 / 100 / 10 R/h at H+1).
+  Glasstone Table 9.93 fallout contours (8 graded bands, 3,000 down to
+  1 R/h at H+1).
   The card leads with "Get Inside, Stay Inside, Stay Tuned", says which
   zone and fallout contour you and your team are in, and estimates
   fallout arrival; never auto-sent. Wind by compass buttons (or exact
@@ -70,8 +71,11 @@ or department procedures.
 _________________________________________________________________
 STATUS
 
-1.1 (Nov 2026, in testing): UXO mode, nuclear detonation reference mode
-and Reference tab (see above). Sources verified: ATP 4-32.2 (01 Mar 2024,
+1.1 (Nov 2026): UXO mode (ATP 4-32.2 cordons, EOD 9-line report),
+nuclear detonation reference mode (FEMA damage zones, burns, initial
+radiation, graded fallout; military Zones I/II with NBC 1 and NBC 3 NUC
+reports; yield presets checked against the latest Nuclear Notebook for
+each country) and Reference tab (see above). Sources verified: ATP 4-32.2 (01 Mar 2024,
 Distribution A) Fig. 31 and Table 1; DESR 6055.09 Ed.1 Ch.2 (Nov 2025);
 UNMAS Safety Handbook (3rd ed.); IMAS (as of 1 May 2026); FEMA Planning
 Guidance for Response to a Nuclear Detonation 3rd ed. (2022); Glasstone &

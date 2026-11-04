@@ -77,18 +77,18 @@ Blast draws a hostile marker *UXO n* and one orange cordon circle. The card show
 
 #tak-slide[
   = Nuclear detonation reference, new in 1.1
-For planning, training and "what would this mean here": choose *NUCLEAR DETONATION (reference / planning)* under New incident. It is a reference overlay, not a prediction of a real event.
+For planning, training and "what would this mean here": choose *NUCLEAR DETONATION* under New incident. It is a reference overlay, not a prediction of a real event.
 + *Yield:* type kilotons or megatons (0.1 kt to 50 Mt), or pick *FEMA scenarios* (0.1, 1, 10 kT), *Fielded weapons* (choose a country, then a weapon; public, unofficial estimates such as US W76-1 90 kt or China DF-41 425 kt; ranges use the upper value), *Tests & history* (Hiroshima, Nagasaki, Castle Bravo) or *By yield*.
 + *Burst:* *Unknown* (recommended: the worst case of both), *Surface* or *Air*. Blast never asks for or shows a burst height: air-burst rings are the farthest each effect reaches over all heights.
-+ *Wind (optional):* the direction the wind blows *from* (degrees true) and its speed. With a wind, surface and unknown bursts get idealized fallout contours downwind.
++ *Wind (optional):* tap the compass button for where the wind blows *from* (N, NE … NW) and *Light*, *Moderate* or *Strong*, or type an exact direction (° true) and speed; *Wind unknown* draws no fallout. With a wind, surface and unknown bursts get idealized fallout contours downwind.
 + *Place ground zero:* tap the map, map center or a marker.
 
-Blast draws FEMA's red *Severe*, orange *Moderate* and yellow *Light Damage Zones*, a dashed cyan *burn* ring (second-degree burns to bare skin, clear day), a blue *initial radiation* ring (100 rad outdoors), a dotted 50-mile *Get Inside* ring and purple fallout outlines (1,000 / 100 / 10 R/h at H+1).
+Blast draws FEMA's red *Severe*, orange *Moderate* and yellow *Light Damage Zones*, a dashed cyan *burn* ring (second-degree burns to bare skin, clear day), a blue *initial radiation* ring (100 rad outdoors), a dotted 50-mile *Get Inside* ring and eight graded fallout bands downwind (3,000 down to 1 R/h at H+1).
 
 = The nuclear card
 - *Do now* comes first: *Get Inside, Stay Inside, Stay Tuned*: a basement or the middle of a large, dense building, for 12–24 hours unless told otherwise. Fallout will likely take 10 minutes or more to arrive.
 - *YOU:* the zone you are in, whether you are inside a fallout contour and roughly when fallout could arrive. *Team:* how many contacts are inside the damage zones or a fallout contour.
-- Each ring's distance and meaning, the fallout direction, *Add / Change wind…*, the basis, caveats and source. Never sent automatically; *Mark cleared* marks it *ENDED*.
+- Each ring's distance and meaning, the fallout picture and its wind (change it there), the basis, caveats and source. Never sent automatically; *Mark cleared* marks it *ENDED*.
 ]
 
 #tak-slide[

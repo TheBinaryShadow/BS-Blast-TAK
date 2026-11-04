@@ -86,6 +86,33 @@ bump the edition whenever any number below changes).
 | 1 Mt | surface | 2.3 mi | 4.6 mi | 13.9 mi | 6.7 mi | 1.9 mi |
 | 1 Mt | air | 3.7 mi | 7.7 mi | 27.8 mi | 8.4 mi | 1.9 mi |
 
+## Military picture (1.1 test 5): legacy public doctrine
+
+Sources read from the PDFs (3 Nov 2026): FM 3-3-1 (9 Sep 1994, approved
+for public release), FM 3-11.3 (2 Feb 2006, Change 1 30 Apr 2009,
+distribution unlimited), JP 3-11 (26 Aug 2008), LLNL NARAC briefing
+products. The current TM 3-11.32 and ATP-45 (Ed. F) are restricted; the
+user's ATP-45 Ed. E (2014) file contains only the front matter.
+
+| Item | Source | Used |
+|---|---|---|
+| Zone I / II definitions | FM 3-11.3 p. G-23 | 125 cGy in < 4 h / 75 cGy in 24 h (FM 3-3-1's older text says 150/50 with garbled units) |
+| Zone I distance | FM 3-3-1 Table E-4 (p. E-11), 57 yields 0.01 kt-10 MT x 20 winds 8-160 km/h | transcribed from the page image; log-log interpolation; cells where the table drops with larger yield/wind (6-13 km band, e.g. 4 kt at 8 km/h printed 6 < 3 kt's 6.1) raised to the neighbour |
+| Worked examples | FM 3-3-1 p. 3-24 (16 kt, 16 km/h -> 18 km), FM 3-11.3 Fig. G-16 (35 kt, 29 km/h -> 33 km nomogram; table gives ~34.6), FM 3-3-1 p. 3-28 (100 kt, 16 kn -> 30 nmi) | unit tests |
+| Zone II | FM 3-11.3 G-31 | 2 x Zone I |
+| Sector | FM 3-3-1 p. 3-23; CM5206 | 40° (radials ±20°), EDM 9-digit expanded angle |
+| Cloud radius | FM 3-3-1 p. 3-23 predictor: 1.2/1.9/4.2/6.8/11.2/18.0/28 km for 2/5/30/100/300 kt/1/3 MT; Table E-1 above 3 MT (10 MT 46 km, 20 MT 62 km) | yield-group radius |
+| Low wind | FM 3-11.3 G-31, FM 3-3-1 p. 3-16/3-24 | < 8 km/h: circles; Zone I from table at 8 km/h or 3-digit EDM |
+| Arrival | FM 3-3-1 p. 3-23 | arcs every EWS km; actual as early as half; none by 2x or 12 h |
+| Air burst | FM 3-11.3 G-23 | no prediction |
+| NBC 1 NUC | FM 3-11.3 C1 Fig. G-3, Table III-2 | lines BRAVO DELTA FOXTROT GOLF HOTEL JULIET KILO LIMA YANKEE GENTEXT; ALFA left to the CBRN cell |
+| NBC 3 PAPAB | FM 3-11.3 G-46/47, Fig. G-26 | sssKPH/xxxKM/rrKM/left/right (rr rounded up) |
+| Polar plot | FM 3-11.3 G-15 | flash-to-bang x 0.35 km/s |
+| RES / severity / OEG | JP 3-11 (2008) Figs. D-2, D-3, D-6 | Reference tab |
+
+Not done: yield estimation from cloud width (FM 3-11.3 Fig. G-8 nomogram)
+and the detailed (wind-vector) prediction.
+
 ## Not modelled (deferred)
 
 Burst heights between surface and air (partial fallout), altitude, terrain

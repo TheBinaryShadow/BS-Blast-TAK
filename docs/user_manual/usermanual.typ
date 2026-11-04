@@ -92,6 +92,18 @@ Blast draws FEMA's red *Severe*, orange *Moderate* and yellow *Light Damage Zone
 ]
 
 #tak-slide[
+  = Military picture (Zones I and II)
+On the nuclear card, *FALLOUT PICTURE* switches between *CIVIL* (the default: FEMA zones and eight graded Glasstone fallout bands) and *MILITARY*: the simplified fallout prediction of the last public US manuals, FM 3-3-1 (1994) and FM 3-11.3 (2009).
+- *Zone I* (immediate operational concern): exposed, unprotected troops may get 125 cGy or more within 4 hours of fallout arriving. *Zone II* (secondary hazard): not 125 cGy in 4 hours, but 75 cGy or more in 24 hours.
+- Enter the *EDM* line for the yield group (6 digits: downwind direction and speed in km/h, e.g. 090016; 9 digits with an expanded angle; 3 digits below 8 km/h = Zone I radius), or use a surface wind as a rough substitute.
+- Blast draws Zone I (red) and Zone II (amber) with a 40° sector, the cloud-radius semicircle and dashed arrival arcs (H+1, H+2 …), and gives the NBC 3 NUC PAPAB line to copy. Fallout may arrive as early as half the estimate; none by twice the estimate (or 12 h) means none expected. No prediction is made for air bursts.
+- These are troop planning zones based on mission doses, not public safety: civilians shelter anyway.
+
+= NBC 1 NUC report
+*NBC 1 NUC REPORT…* on the card builds the observer report (FM 3-11.3 Fig. G-3): your position and the direction to the burst (BRAVO), time (DELTA), GZ estimated or actual (FOXTROT), delivery (GOLF), burst type (HOTEL), flash-to-bang (JULIET), crater (KILO), cloud width at H+5 (LIMA) and wind (YANKEE). *Save* keeps it on the incident; *Copy text* for radio or chat. *From what I saw* (New incident) places ground zero by polar plot: azimuth from you and flash-to-bang × 0.35 km.
+]
+
+#tak-slide[
   = Nuclear rings: basis and limits
 - Damage zones: FEMA Planning Guidance 3rd ed. (2022): about 0.5 / 1 / 3 miles for a 10 kT ground-level detonation, growing about twofold per tenfold yield. Air bursts: times 1.58 / 1.67 / 2.0 (Glasstone & Dolan Fig. 3.73c, the light-zone ratio extends Glasstone's 1 psi curve).
 - Burns: Glasstone Fig. 12.64 (most sensitive skin, 50%) and Fig. 7.42 (12-mile visibility); surface bursts deliver about half the heat. Initial radiation: Figs. 8.33 and 8.64, Table 8.37. Fallout: Table 9.93, idealized, 100% fission.

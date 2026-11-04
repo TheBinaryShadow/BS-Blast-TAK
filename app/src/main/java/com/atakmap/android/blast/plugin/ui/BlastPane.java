@@ -60,10 +60,12 @@ import com.atakmap.android.util.ATAKUtilities;
 import com.atakmap.android.toolbar.widgets.TextContainer;
 import com.atakmap.coremap.log.Log;
 import com.atakmap.android.blast.plugin.core.Geo;
+import com.atakmap.android.blast.plugin.core.NucMil;
 import com.atakmap.android.blast.plugin.core.NucModel;
 import com.atakmap.android.blast.plugin.core.NucPresets;
 import com.atakmap.android.blast.plugin.core.NucRecord;
 import com.atakmap.android.blast.plugin.core.NucReference;
+import com.atakmap.android.blast.plugin.core.NucReports;
 import com.atakmap.android.blast.plugin.core.NucText;
 import com.atakmap.coremap.maps.coords.GeoPoint;
 import com.atakmap.coremap.maps.coords.GeoPointMetaData;
@@ -130,7 +132,8 @@ public final class BlastPane {
     private Button modeIedBtn, modeUxoBtn, modeNucBtn;
     private LinearLayout iedSection, uxoSection, nucSection;
     private EditText nucYieldEdit;
-    private Button nucKtBtn, nucMtBtn, nucPickBtn, nucCenterBtn, nucTargetBtn;
+    private Button nucKtBtn, nucMtBtn, nucPickBtn, nucCenterBtn, nucTargetBtn,
+            nucPolarBtn;
     private final List<Button> nucBurstButtons = new ArrayList<>();
     private TextView nucSelText;
     private LinearLayout nucPreview;
@@ -1028,6 +1031,14 @@ public final class BlastPane {
         });
         place.addView(nucPickBtn, weight());
         place.addView(nucCenterBtn, weight());
+        nucPolarBtn = button("From what I saw", BTN);
+        nucPolarBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                promptPolarPlot();
+            }
+        });
+        place.addView(nucPolarBtn, weight());
         col.addView(place);
         col.addView(text("Nuclear reference incidents are never sent "
                 + "automatically: share them from the card when you choose.",
@@ -1124,7 +1135,8 @@ public final class BlastPane {
             nucSelText.setTextColor(TEXT);
         }
         boolean ok = nucReady();
-        for (Button b : new Button[] { nucPickBtn, nucCenterBtn }) {
+        for (Button b : new Button[] { nucPickBtn, nucCenterBtn,
+                nucPolarBtn }) {
             b.setEnabled(ok);
             b.setAlpha(ok ? 1f : 0.4f);
         }
@@ -1161,6 +1173,10 @@ public final class BlastPane {
     }
 
     private void placeNuc(GeoPoint at) {
+        placeNuc(at, null);
+    }
+
+    private void placeNuc(GeoPoint at, NucRecord.Obs obs) {
         try {
             if (!nucReady()) {
                 toast("Enter a yield from 0.1 kt to 20 Mt first.");
@@ -1169,6 +1185,8 @@ public final class BlastPane {
             NucRecord r = NucRecord.create(nucYieldKt(), nucBurst,
                     nucPresetId, nucWindFrom, nucWindMph, callsign(),
                     System.currentTimeMillis());
+            if (obs != null)
+                r = r.withObs(obs);
             Marker m = store.createNuc(at, r);
             if (m == null) {
                 toast("Could not place the incident.");
@@ -1462,6 +1480,426 @@ public final class BlastPane {
     }
 
     // ------------------------------------------------------------------
+    // Military picture (FM 3-3-1 / FM 3-11.3) and NBC reports
+
+    /** MGRS to 10 m (4 + 4 digits), spaces kept; "" if unavailable. */
+    private static String mgrs10(GeoPoint gp) {
+        if (gp == null || !gp.isValid())
+            return "";
+        try {
+            String s = com.atakmap.coremap.conversions.CoordinateFormatUtilities
+                    .formatToString(gp,
+                            com.atakmap.coremap.conversions.CoordinateFormat.MGRS);
+            String[] t = s.trim().split("\\s+");
+            if (t.length == 4 && t[2].length() == 5 && t[3].length() == 5)
+                return t[0] + " " + t[1] + " " + t[2].substring(0, 4) + " "
+                        + t[3].substring(0, 4);
+            return s;
+        } catch (RuntimeException e) {
+            return "";
+        }
+    }
+
+    /** Store an updated nuclear record on its marker and refresh. */
+    private void saveNuc(Marker card, NucRecord changed, String done) {
+        try {
+            Marker m = live(card);
+            if (m == null)
+                return;
+            if (!store.writeNuc(m, changed)) {
+                live(null);
+                return;
+            }
+            cardSignature = null;
+            refresh();
+            if (done != null)
+                toast(done);
+        } catch (RuntimeException e) {
+            Log.e(TAG, "nuclear update failed", e);
+            toast("Could not update the incident.");
+        }
+    }
+
+    /** Card section: civil / military picture and the fallout legend. */
+    private void addFalloutSection(LinearLayout card, final Marker m,
+            final NucRecord r, boolean grey) {
+        card.addView(sub("FALLOUT PICTURE"));
+        LinearLayout pic = horizontal();
+        Button civ = button("CIVIL\nFEMA / Glasstone", r.mil.on ? BTN : NUC_SEL);
+        Button mil = button("MILITARY\nFM 3-3-1 Zones I / II",
+                r.mil.on ? NUC_SEL : BTN);
+        civ.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                NucRecord cur = BlastStore.readNuc(m);
+                if (cur != null && cur.mil.on)
+                    saveNuc(m, cur.withMil(cur.mil.withOn(false)), null);
+            }
+        });
+        mil.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                NucRecord cur = BlastStore.readNuc(m);
+                if (cur != null && !cur.mil.on)
+                    saveNuc(m, cur.withMil(cur.mil.withOn(true)), null);
+            }
+        });
+        pic.addView(civ, weight());
+        pic.addView(mil, weight());
+        card.addView(pic);
+        card.addView(text(NucText.falloutLine(r), 13, TEXT, false));
+        if (r.drawsFallout()) {
+            int[] fr = NucModel.FALLOUT_RATES;
+            for (int k = 0; k < fr.length; k++)
+                card.addView(swatchRow(grey ? DIM : NucText.FALLOUT_STROKE[k],
+                        Formats.thousands(fr[k]) + " R/h at H+1: "
+                                + NucText.dist(NucModel.contour(r.yieldKt,
+                                        fr[k], r.windMph).downwindM)
+                                + " downwind", grey ? DIM : 0xFFE1BEE7));
+            card.addView(text("Idealized contours (Glasstone Table 9.93, "
+                    + "100% fission). Dose rates fall about tenfold for every "
+                    + "sevenfold increase in time: 100 R/h at H+1 is about 10 "
+                    + "R/h at H+7 and 1 R/h at H+49. Lack of visible fallout "
+                    + "does not mean no fallout.", 12, DIM, false));
+        }
+        final NucMil.Prediction p = r.drawsMilitary() ? r.militaryPrediction()
+                : null;
+        if (p != null) {
+            card.addView(swatchRow(grey ? DIM : NucText.ZONE_I_STROKE,
+                    "Zone I: " + Math.round(p.zoneIKm) + " km", grey ? DIM
+                            : 0xFFFF8A80));
+            card.addView(text(NucReports.ZONE_I, 12, DIM, false));
+            card.addView(swatchRow(grey ? DIM : NucText.ZONE_II_STROKE,
+                    "Zone II: " + Math.round(p.zoneIIKm) + " km", grey ? DIM
+                            : 0xFFFFE57F));
+            card.addView(text(NucReports.ZONE_II, 12, DIM, false));
+            if (!p.arrivalHours().isEmpty())
+                card.addView(swatchRow(grey ? DIM : NucText.ARC_STROKE,
+                        "Dashed arcs: estimated arrival H+1, H+2 …", TEXT));
+            card.addView(text("Arrival may be as early as half the estimate. "
+                    + "No fallout by twice the estimate (or 12 h) means none "
+                    + "expected.", 12, DIM, false));
+            final String nbc3 = NucReports.nbc3(r, p, mgrs10(m.getPoint()));
+            TextView t3 = text(nbc3, 12, TEXT, false);
+            t3.setTypeface(Typeface.MONOSPACE);
+            card.addView(t3);
+            Button c3 = button("Copy NBC 3 NUC text", BTN);
+            c3.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    copy(nbc3);
+                }
+            });
+            card.addView(c3, full());
+            for (String c : NucReports.CAVEATS)
+                card.addView(text("• " + c, 12, DIM, false));
+            Button how = button("How Zones I and II are drawn", BTN);
+            how.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showTab(true, NucReference.MIL);
+                }
+            });
+            card.addView(how, full());
+        }
+        if (r.mil.on && r.isKnownModel()) {
+            card.addView(text("Effective downwind message (EDM) line for "
+                    + "this yield's group"
+                    + (NucMil.group(r.yieldKt) == null ? ""
+                            : " (" + NucMil.group(r.yieldKt) + ")")
+                    + ": 6 digits dddsss, 9 digits with angle, or 3 digits "
+                    + "(Zone I km, winds below 8 km/h).", 12, DIM, false));
+            LinearLayout el = horizontal();
+            el.setGravity(Gravity.CENTER_VERTICAL);
+            final EditText edm = inlineNumber("e.g. 090016", 9);
+            edm.setInputType(InputType.TYPE_CLASS_NUMBER);
+            el.addView(edm, new LinearLayout.LayoutParams(0,
+                    ViewGroup.LayoutParams.WRAP_CONTENT, 2f));
+            Button apply = button("Apply EDM", BTN);
+            apply.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    NucMil.Edm e = NucMil.parseEdm(edm.getText().toString());
+                    NucRecord cur = BlastStore.readNuc(m);
+                    if (e == null || cur == null) {
+                        toast("Enter 3, 6 or 9 digits from the EDM line.");
+                        return;
+                    }
+                    saveNuc(m, cur.withEdm(e),
+                            "EDM applied on this device. Use SEND to share it.");
+                }
+            });
+            el.addView(apply, weight());
+            card.addView(el);
+        }
+        if (r.isKnownModel()) {
+            card.addView(sub(r.mil.on ? "OR A SURFACE WIND (rough guide)"
+                    : r.hasWind() ? "CHANGE WIND" : "ADD WIND"));
+            new WindPicker(card, r.windFromDeg, r.windMph, new WindListener() {
+                @Override
+                public void onWind(double fromDeg, double mph) {
+                    saveWind(m, fromDeg, mph);
+                }
+            });
+        }
+    }
+
+    private View swatchRow(int barColor, String label, int textColor) {
+        LinearLayout row = horizontal();
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        View bar = new View(plugin);
+        bar.setBackgroundColor(barColor);
+        LinearLayout.LayoutParams bl = new LinearLayout.LayoutParams(dp(8),
+                dp(18));
+        bl.setMargins(0, dp(2), dp(8), dp(2));
+        row.addView(bar, bl);
+        row.addView(text(label, 13, textColor, true), new LinearLayout
+                .LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        return row;
+    }
+
+    /** Toggle buttons: tap to select, tap again to clear (if allowed). */
+    private void bindChoice(final List<Button> bs, final String[] codes,
+            final String[] value, final boolean clearable,
+            final Runnable onChange) {
+        for (int i = 0; i < bs.size(); i++) {
+            final int k = i;
+            bs.get(i).setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    value[0] = clearable && codes[k].equals(value[0]) ? ""
+                            : codes[k];
+                    for (int j = 0; j < bs.size(); j++)
+                        tint(bs.get(j), codes[j].equals(value[0]) ? NUC_SEL
+                                : BTN);
+                    onChange.run();
+                }
+            });
+            tint(bs.get(i), codes[i].equals(value[0]) ? NUC_SEL : BTN);
+        }
+    }
+
+    /** NBC 1 NUC report builder (FM 3-11.3 Fig. G-3), saved on the incident. */
+    private void promptNbc1(Marker card) {
+        final Marker m = live(card);
+        final NucRecord r0 = m == null ? null : BlastStore.readNuc(m);
+        if (r0 == null)
+            return;
+        final NucRecord.Obs o = r0.obs;
+        final GeoPoint self = selfPoint();
+        final GeoPoint gz = m.getPoint();
+        Context ctx = mapView.getContext();
+        ScrollView sv = new ScrollView(ctx);
+        LinearLayout box = new LinearLayout(ctx);
+        box.setOrientation(LinearLayout.VERTICAL);
+        int pd = dp(14);
+        box.setPadding(pd, dp(6), pd, 0);
+        sv.addView(box);
+        box.addView(note(ctx, NucReports.PRECEDENCE));
+        double az0 = o.azDeg;
+        if (Double.isNaN(az0) && self != null && gz != null)
+            az0 = self.bearingTo(gz);
+        final EditText az = field(ctx, box, "BRAVO: direction to the burst from "
+                + "you, degrees" + (Double.isNaN(o.azDeg) && !Double.isNaN(az0)
+                        ? " (filled from your GPS to ground zero, true)" : ""),
+                Double.isNaN(az0) ? "" : Long.toString(Math.round(az0)), true);
+        final CheckBox magnetic = new CheckBox(ctx);
+        magnetic.setText("Magnetic (from a compass)");
+        box.addView(magnetic);
+        box.addView(note(ctx, NucReports.FLASH_HELP));
+        final EditText ftb = field(ctx, box, "JULIET: flash-to-bang, seconds",
+                Double.isNaN(o.flashToBangS) ? ""
+                        : Long.toString(Math.round(o.flashToBangS)), true);
+        box.addView(note(ctx, NucReports.WIDTH_HELP));
+        final EditText cw = field(ctx, box, "LIMA: cloud width at H+5, degrees",
+                Double.isNaN(o.cloudWidthDeg) ? ""
+                        : Formats.decimalTrim(o.cloudWidthDeg), true);
+        box.addView(label(ctx, "FOXTROT: ground zero"));
+        final String[] gq = { o.gzQualifier };
+        List<Button> gqb = choiceRow(box, new String[] { "Estimated (EE)",
+                "Actual: I can see GZ (AA)" }, 2);
+        box.addView(label(ctx, "KILO: crater"));
+        final String[] kilo = { o.crater };
+        List<Button> kb = choiceRow(box, new String[] { "Crater", "No crater",
+                "Unknown" }, 3);
+        box.addView(label(ctx, "GOLF: delivery"));
+        final String[] so = { o.golfSo };
+        List<Button> sob = choiceRow(box, new String[] { "Suspected",
+                "Observed" }, 2);
+        final String[] del = { o.golfDelivery };
+        List<Button> db = choiceRow(box, new String[] { "Unknown", "Aircraft",
+                "Missile", "Cannon" }, 4);
+        final String[] con = { o.golfContainer };
+        List<Button> cb = choiceRow(box, new String[] { "Unknown", "Bomb",
+                "Missile", "Shell" }, 4);
+        box.addView(note(ctx, NucReports.HOTEL_HELP + " This report uses the "
+                + "incident's burst type: " + NucReports.hotel(r0.burst) + "."));
+        final TextView preview = new TextView(ctx);
+        preview.setTypeface(Typeface.MONOSPACE);
+        preview.setTextIsSelectable(true);
+        preview.setPadding(0, dp(8), 0, dp(8));
+        box.addView(preview);
+        final String obsGrid = mgrs10(self);
+        final String gzGrid = mgrs10(gz);
+        final NucRecord[] built = { r0 };
+        final Runnable update = new Runnable() {
+            @Override
+            public void run() {
+                double a = ZoneCalculator.parseQuantity(az.getText().toString());
+                if (magnetic.isChecked() && !Double.isNaN(a) && self != null) {
+                    try {
+                        a = ATAKUtilities.convertFromMagneticToTrue(self, a);
+                    } catch (RuntimeException e) {
+                        a = Double.NaN;
+                    }
+                }
+                NucRecord.Obs no = new NucRecord.Obs(
+                        self == null ? Double.NaN : self.getLatitude(),
+                        self == null ? Double.NaN : self.getLongitude(), a,
+                        ZoneCalculator.parseQuantity(ftb.getText().toString()),
+                        ZoneCalculator.parseQuantity(cw.getText().toString()),
+                        kilo[0], so[0], del[0], con[0], gq[0]);
+                built[0] = r0.withObs(no);
+                String s = NucReports.nbc1(built[0], obsGrid, gzGrid);
+                List<String> miss = NucReports.nbc1Missing(built[0], obsGrid);
+                if (!miss.isEmpty()) {
+                    s += "\n\nMissing:";
+                    for (String x : miss)
+                        s += "\n- " + x;
+                }
+                preview.setText(s);
+            }
+        };
+        bindChoice(gqb, new String[] { "EE", "AA" }, gq, false, update);
+        bindChoice(kb, new String[] { "CRATER", "NONE", "UNK" }, kilo, true,
+                update);
+        bindChoice(sob, new String[] { "SUS", "OBS" }, so, false, update);
+        bindChoice(db, new String[] { "UNK", "AIR", "MSL", "CAN" }, del, false,
+                update);
+        bindChoice(cb, new String[] { "UNK", "BOM", "MSL", "SHL" }, con, false,
+                update);
+        TextWatcher tw = new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int a, int b, int c) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int a, int b, int c) {
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                update.run();
+            }
+        };
+        az.addTextChangedListener(tw);
+        ftb.addTextChangedListener(tw);
+        cw.addTextChangedListener(tw);
+        magnetic.setOnCheckedChangeListener(
+                new CompoundButton.OnCheckedChangeListener() {
+                    @Override
+                    public void onCheckedChanged(CompoundButton b, boolean on) {
+                        update.run();
+                    }
+                });
+        update.run();
+        showTyping(new AlertDialog.Builder(ctx)
+                .setTitle("NBC 1 NUC report")
+                .setView(sv)
+                .setPositiveButton("Save", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface d, int w) {
+                        update.run();
+                        NucRecord cur = BlastStore.readNuc(m);
+                        if (cur != null)
+                            saveNuc(m, cur.withObs(built[0].obs),
+                                    "Observations saved on the incident.");
+                    }
+                })
+                .setNeutralButton("Copy text",
+                        new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface d, int w) {
+                                update.run();
+                                copy(NucReports.nbc1(built[0], obsGrid,
+                                        gzGrid));
+                            }
+                        })
+                .setNegativeButton("Cancel", null));
+    }
+
+    /** Place ground zero by polar plot: azimuth and flash-to-bang. */
+    private void promptPolarPlot() {
+        final GeoPoint self = selfPoint();
+        if (self == null) {
+            toast("No GPS position yet: tap the map instead.");
+            return;
+        }
+        if (!nucReady()) {
+            toast("Enter a yield from 0.1 kt to 20 Mt first.");
+            return;
+        }
+        Context ctx = mapView.getContext();
+        LinearLayout box = new LinearLayout(ctx);
+        box.setOrientation(LinearLayout.VERTICAL);
+        int pd = dp(16);
+        box.setPadding(pd, dp(8), pd, 0);
+        final EditText az = field(ctx, box, "Azimuth to the stem or cloud "
+                + "centre, degrees", "", true);
+        final CheckBox magnetic = new CheckBox(ctx);
+        magnetic.setText("Magnetic bearing (from a compass)");
+        magnetic.setChecked(true);
+        box.addView(magnetic);
+        final EditText ftb = field(ctx, box, "Flash-to-bang, seconds", "", true);
+        box.addView(note(ctx, NucReports.FLASH_HELP + " Ground zero is placed "
+                + "that far along the azimuth from your GPS position (polar "
+                + "plot, FM 3-11.3) and marked estimated."));
+        showTyping(new AlertDialog.Builder(ctx)
+                .setTitle("Place from what you observed")
+                .setView(box)
+                .setPositiveButton("Place", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface d, int w) {
+                        double a = ZoneCalculator.parseQuantity(
+                                az.getText().toString());
+                        double s = ZoneCalculator.parseQuantity(
+                                ftb.getText().toString());
+                        if (!(a >= 0 && a <= 360)) {
+                            toast("Enter an azimuth from 0 to 359.");
+                            return;
+                        }
+                        if (!(s > 0 && s <= 300)) {
+                            toast("Enter the flash-to-bang time, 1 to 300 s.");
+                            return;
+                        }
+                        double t = a;
+                        if (magnetic.isChecked()) {
+                            try {
+                                t = ATAKUtilities.convertFromMagneticToTrue(
+                                        self, a);
+                            } catch (RuntimeException e) {
+                                toast("Magnetic declination unavailable: "
+                                        + "enter a true bearing.");
+                                return;
+                            }
+                        }
+                        double[] ll = Geo.destination(self.getLatitude(),
+                                self.getLongitude(), ((t % 360) + 360) % 360,
+                                NucMil.polarKm(s) * 1000);
+                        GeoPoint at = new GeoPoint(ll[0], ll[1]);
+                        if (!at.isValid()) {
+                            toast("Could not compute the position.");
+                            return;
+                        }
+                        placeNuc(at, new NucRecord.Obs(self.getLatitude(),
+                                self.getLongitude(), t, s, Double.NaN, "",
+                                "SUS", "UNK", "UNK", "EE"));
+                    }
+                })
+                .setNegativeButton("Cancel", null));
+    }
+
+    // ------------------------------------------------------------------
     // Nuclear incident card: protective actions first
 
     private void buildNucCard(final Marker m, final NucRecord r) {
@@ -1495,6 +1933,18 @@ public final class BlastPane {
             i++;
         }
         card.addView(text(NucText.FLASH, 12, DIM, false));
+        Button nbc1 = button(r.obs.isEmpty() ? "NBC 1 NUC REPORT…"
+                : "NBC 1 NUC REPORT… (edit)", SEND);
+        nbc1.setTypeface(Typeface.DEFAULT_BOLD);
+        nbc1.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                promptNbc1(m);
+            }
+        });
+        LinearLayout.LayoutParams nl = full();
+        nl.setMargins(0, dp(6), 0, 0);
+        card.addView(nbc1, nl);
 
         youText = text("", 14, TEXT, false);
         youText.setPadding(0, dp(6), 0, 0);
@@ -1509,42 +1959,7 @@ public final class BlastPane {
                             + (ring == NucText.Ring.BURN ? ", dashed" : ""),
                     NucText.meaning(ring), grey));
 
-        card.addView(sub("FALLOUT"));
-        card.addView(text(NucText.falloutLine(r), 13, TEXT, false));
-        if (r.drawsFallout())
-            card.addView(text("Contours: 1,000 / 100 / 10 R/h at H+1 "
-                    + "(idealized, 100% fission). Dose rates fall about "
-                    + "tenfold for every sevenfold increase in time: 100 R/h "
-                    + "at H+1 is about 10 R/h at H+7 and 1 R/h at H+49.", 12,
-                    DIM, false));
-        if (r.drawsFallout()) {
-            int[] fc = { 0xFFCE93D8, 0xFFE1BEE7, 0xFFF3E5F5 };
-            int[] fr = NucModel.FALLOUT_RATES;
-            for (int k = 0; k < fr.length; k++) {
-                LinearLayout row = horizontal();
-                View bar = new View(plugin);
-                bar.setBackgroundColor(grey ? DIM : fc[k]);
-                LinearLayout.LayoutParams bl = new LinearLayout.LayoutParams(
-                        dp(8), dp(18));
-                bl.setMargins(0, 0, dp(8), 0);
-                row.addView(bar, bl);
-                row.addView(text("Fallout " + Formats.thousands(fr[k])
-                        + " R/h at H+1, reaches "
-                        + NucText.dist(NucModel.contour(r.yieldKt, fr[k],
-                                r.windMph).downwindM)
-                        + " downwind", 13, grey ? DIM : fc[k], true));
-                card.addView(row);
-            }
-        }
-        if (r.isKnownModel()) {
-            card.addView(sub(r.hasWind() ? "CHANGE WIND" : "ADD WIND"));
-            new WindPicker(card, r.windFromDeg, r.windMph, new WindListener() {
-                @Override
-                public void onWind(double fromDeg, double mph) {
-                    saveWind(m, fromDeg, mph);
-                }
-            });
-        }
+        addFalloutSection(card, m, r, grey);
 
         LinearLayout a1 = horizontal();
         Button sendAll = button("SEND TO ALL", SEND);

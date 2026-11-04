@@ -89,6 +89,10 @@ public final class BlastStore {
             l.add(r.suffix);
         for (int rate : NucModel.FALLOUT_RATES)
             l.add(NucText.falloutSuffix(rate));
+        l.add(NucText.zoneSuffix(1));
+        l.add(NucText.zoneSuffix(2));
+        for (int h = 1; h <= NucText.MAX_ARCS; h++)
+            l.add(NucText.arcSuffix(h));
         return l.toArray(new String[0]);
     }
 
@@ -108,8 +112,6 @@ public final class BlastStore {
     static final int NUC_BURN = 0xFF00B8D4;
     static final int NUC_RAD = 0xFF536DFE;
     static final int NUC_GI = 0xFFE0E0E0;
-    static final int[] NUC_FO = { 0xFF6A1B9A, 0xFF9C27B0, 0xFFCE93D8 };
-    static final int[] NUC_FO_FILL = { 0x456A1B9A, 0x339C27B0, 0x22CE93D8 };
     static final int NO_FILL = 0x00000000;
 
 
@@ -639,57 +641,83 @@ public final class BlastStore {
         ensureFallout(m, r);
     }
 
-    /** Draw, move or remove the fallout outlines to match the record. */
+    /** Draw, move or remove the fallout outlines and military zones. */
     void ensureFallout(Marker m, NucRecord r) {
         GeoPoint gz = m.getPoint();
-        boolean draw = r.drawsFallout() && gz != null && gz.isValid();
-        for (int i = 0; i < NucModel.FALLOUT_RATES.length; i++) {
-            int rate = NucModel.FALLOUT_RATES[i];
-            String uid = m.getUID() + NucText.falloutSuffix(rate);
-            MapItem existing = liveItem(uid);
-            if (!draw) {
-                if (existing != null)
-                    removePart(existing);
-                continue;
-            }
-            DrawingShape sh;
-            boolean added = false;
-            if (existing instanceof DrawingShape) {
-                sh = (DrawingShape) existing;
-            } else if (existing != null) {
-                Log.w(TAG, "uid " + uid + " is not a shape; not drawing");
-                continue;
-            } else {
-                sh = new DrawingShape(mapView, uid);
-                ATAKUtilities.setAuthorInformation(sh);
-                intendedRemovals.remove(uid);
-                added = true;
-            }
-            double[][] ll = NucGeo.fallout(r, rate, gz.getLatitude(),
-                    gz.getLongitude());
-            if (ll == null)
-                continue;
-            GeoPointMetaData[] pts = new GeoPointMetaData[ll.length];
-            for (int k = 0; k < ll.length; k++)
-                pts[k] = GeoPointMetaData.wrap(new GeoPoint(ll[k][0], ll[k][1]));
-            sh.setPoints(pts);
-            sh.setClosed(true);
-            sh.setMetaString(META_PARENT, m.getUID());
-            sh.setMetaBoolean("editable", false);
-            sh.setMovable(false);
-            sh.setTitle(NucText.falloutTitle(r, rate));
-            sh.setStrokeColor(r.isCleared() ? GREY : NUC_FO[i]);
-            sh.setFillColor(r.isCleared() ? GREY_FILL : NUC_FO_FILL[i]);
-            sh.setStrokeWeight(2d);
-            if (added) {
-                MapGroup g = DrawingToolsMapComponent.getGroup();
-                if (g == null)
-                    g = mapView.getRootGroup();
-                g.addItem(sh);
-            }
-            sh.persist(mapView.getMapEventDispatcher(), null, BlastStore.class);
-            watch(sh);
+        boolean ok = gz != null && gz.isValid();
+        double lat = ok ? gz.getLatitude() : 0, lon = ok ? gz.getLongitude() : 0;
+        boolean grey = r.isCleared();
+        int[] rates = NucModel.FALLOUT_RATES;
+        for (int i = 0; i < rates.length; i++)
+            shape(m, NucText.falloutSuffix(rates[i]),
+                    ok ? NucGeo.fallout(r, rates[i], lat, lon) : null, true,
+                    NucText.falloutTitle(r, rates[i]),
+                    grey ? GREY : NucText.FALLOUT_STROKE[i],
+                    grey ? GREY_FILL : NucText.FALLOUT_FILL[i],
+                    Shape.BASIC_LINE_STYLE_SOLID, 2d);
+        for (int z = 1; z <= 2; z++)
+            shape(m, NucText.zoneSuffix(z),
+                    ok ? NucGeo.zone(r, z, lat, lon) : null, true,
+                    com.atakmap.android.blast.plugin.core.NucReports
+                            .zoneTitle(r, z),
+                    grey ? GREY : z == 1 ? NucText.ZONE_I_STROKE
+                            : NucText.ZONE_II_STROKE,
+                    grey ? GREY_FILL : z == 1 ? NucText.ZONE_I_FILL
+                            : NucText.ZONE_II_FILL,
+                    Shape.BASIC_LINE_STYLE_SOLID, 3d);
+        for (int h = 1; h <= NucText.MAX_ARCS; h++)
+            shape(m, NucText.arcSuffix(h),
+                    ok ? NucGeo.arrivalArc(r, h, lat, lon) : null, false,
+                    com.atakmap.android.blast.plugin.core.NucReports
+                            .arcTitle(r, h),
+                    grey ? GREY : NucText.ARC_STROKE, NO_FILL,
+                    Shape.BASIC_LINE_STYLE_DASHED, 2d);
+    }
+
+    /** Create, update or (points == null) remove one outline shape. */
+    private void shape(Marker m, String suffix, double[][] ll, boolean closed,
+            String title, int stroke, int fill, int lineStyle, double weight) {
+        String uid = m.getUID() + suffix;
+        MapItem existing = liveItem(uid);
+        if (ll == null || ll.length < 2) {
+            if (existing != null)
+                removePart(existing);
+            return;
         }
+        DrawingShape sh;
+        boolean added = false;
+        if (existing instanceof DrawingShape) {
+            sh = (DrawingShape) existing;
+        } else if (existing != null) {
+            Log.w(TAG, "uid " + uid + " is not a shape; not drawing");
+            return;
+        } else {
+            sh = new DrawingShape(mapView, uid);
+            ATAKUtilities.setAuthorInformation(sh);
+            intendedRemovals.remove(uid);
+            added = true;
+        }
+        GeoPointMetaData[] pts = new GeoPointMetaData[ll.length];
+        for (int k = 0; k < ll.length; k++)
+            pts[k] = GeoPointMetaData.wrap(new GeoPoint(ll[k][0], ll[k][1]));
+        sh.setPoints(pts);
+        sh.setClosed(closed);
+        sh.setMetaString(META_PARENT, m.getUID());
+        sh.setMetaBoolean("editable", false);
+        sh.setMovable(false);
+        sh.setTitle(title);
+        sh.setStrokeColor(stroke);
+        sh.setFillColor(fill);
+        sh.setStrokeWeight(weight);
+        sh.setBasicLineStyle(lineStyle);
+        if (added) {
+            MapGroup g = DrawingToolsMapComponent.getGroup();
+            if (g == null)
+                g = mapView.getRootGroup();
+            g.addItem(sh);
+        }
+        sh.persist(mapView.getMapEventDispatcher(), null, BlastStore.class);
+        watch(sh);
     }
 
     /** Remove one part on purpose, without deleting the whole incident. */

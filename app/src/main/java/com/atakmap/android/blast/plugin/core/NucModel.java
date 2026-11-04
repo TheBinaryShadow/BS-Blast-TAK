@@ -306,7 +306,8 @@ public final class NucModel {
     // Fallout: Table 9.93
 
     /** H+1 reference dose rates drawn, rad/h (subset of Table 9.93). */
-    public static final int[] FALLOUT_RATES = { 1000, 100, 10 };
+    public static final int[] FALLOUT_RATES = { 3000, 1000, 300, 100, 30, 10,
+            3, 1 };
     /** All Table 9.93 rows: rate, downwind a, b(exp 0.45); width c, d; gz e, f. */
     static final double[][] T993 = {
             { 3000, 0.95, 0.0076, 0.86, 0.026, 0.58 },

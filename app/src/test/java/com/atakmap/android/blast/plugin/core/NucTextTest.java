@@ -66,13 +66,13 @@ public class NucTextTest {
         // Wind from 270 (west): fallout goes east. 10 mi east is inside the
         // 100 R/h contour (25 mi long at 10 kt) and arrives ~40 min later.
         NucText.Where e = NucText.where(r, 10 * mi, 0);
-        assertEquals(100, e.falloutRate);
+        assertEquals(300, e.falloutRate);
         assertEquals(40.0 / 60, e.arrivalH, 1e-6);
         assertTrue(e.detail().contains("40 min"));
         // Upwind: none.
         assertEquals(0, NucText.where(r, -10 * mi, 0).falloutRate);
-        // North of the axis by 3 mi at 10 mi east: outside 10 R/h width.
-        assertEquals(0, NucText.where(r, 10 * mi, 3 * mi).falloutRate);
+        // North of the axis by 3 mi at 10 mi east: outside 30 R/h width.
+        assertTrue(NucText.where(r, 10 * mi, 3 * mi).falloutRate <= 10);
         // Air burst: no fallout drawn.
         assertEquals(0, NucText.where(rec(NucModel.Burst.AIR, true), 10 * mi,
                 0).falloutRate);

@@ -13,6 +13,8 @@ public final class NucReference {
 
     public static final String ACTIONS = "NUC_ACTIONS";
     public static final String RINGS = "NUC_RINGS";
+    public static final String MIL = "NUC_MIL";
+    public static final String NBC = "NUC_NBC";
 
     private NucReference() {
     }
@@ -130,7 +132,95 @@ public final class NucReference {
                 "• Hot Zone: 0.01 R/h (10 mR/h) to 10 R/h.",
                 "Blast's contours are H+1 reference rates. Fallout reaches "
                         + "distant points hours later, already decayed, so "
-                        + "a contour is not the Dangerous Radiation Zone."));
+                        + "a contour is not the Dangerous Radiation Zone.",
+                "Lack of visible fallout does not indicate the absence of "
+                        + "fallout; appropriate radiation measurements are "
+                        + "required (LLNL NARAC). Fallout at lower levels "
+                        + "extends well beyond any drawn zone, particularly "
+                        + "downwind."));
+        l.add(new UxoReference.Section(MIL,
+                "Military fallout prediction (Zones I and II)",
+                "The military picture is the simplified fallout prediction of "
+                        + "FM 3-3-1 (1994) and FM 3-11.3 (2006, Change 1 "
+                        + "2009), the last public US versions. Current "
+                        + "manuals (TM 3-11.32, NATO ATP-45) are restricted "
+                        + "and may differ.",
+                "• " + NucReports.ZONE_I,
+                "• " + NucReports.ZONE_II,
+                "• " + NucReports.OUTSIDE,
+                "Method: Zone I downwind distance from FM 3-3-1 Table E-4 "
+                        + "(yield and effective wind speed); Zone II is "
+                        + "twice Zone I. Radial lines 20° either side of the "
+                        + "effective downwind direction (40° sector) unless "
+                        + "the EDM gives a wider angle; tangents from the "
+                        + "cloud-radius semicircle of the yield group to the "
+                        + "Zone I arc; dashed time-of-arrival arcs every "
+                        + "effective wind speed (H+1, H+2, ...).",
+                "Effective downwind message (EDM) lines: 6 digits = "
+                        + "downwind direction and speed (090016 = toward "
+                        + "090° at 16 km/h); 9 digits = plus an expanded "
+                        + "angle; 3 digits = winds below 8 km/h, the Zone I "
+                        + "radius in km, drawn as two circles. Use the line "
+                        + "for the yield group (ALFA ≤2 kt, BRAVO ≤5, "
+                        + "CHARLIE ≤30, DELTA ≤100, ECHO ≤300, FOXTROT ≤1 MT, "
+                        + "GOLF ≤3 MT). EDMs older than 12 hours are not used "
+                        + "(FM 3-3-1).",
+                "Arrival: fallout may arrive as early as half the estimated "
+                        + "time. If none has arrived by twice the estimate "
+                        + "(or 12 hours, whichever is earlier), assume the "
+                        + "area will not receive fallout.",
+                "No fallout predictions are made for air bursts over land. "
+                        + "Overlapping predictions take the higher zone. The "
+                        + "prediction is an estimate only; its boundaries "
+                        + "are not dose-rate contours.",
+                "Table E-4 is used as published, except where it prints a "
+                        + "smaller distance for a larger yield or wind (a "
+                        + "few cells between 6 and 13 km): there the larger "
+                        + "neighbouring value is used. Worked examples "
+                        + "reproduced: 16 kt at 16 km/h = 18 km (FM 3-3-1); "
+                        + "35 kt at 29 km/h ≈ 33 km (FM 3-11.3); 100 kt at 16 "
+                        + "knots ≈ 30 nmi (FM 3-3-1)."));
+        l.add(new UxoReference.Section(NBC, "NBC 1 NUC observer report",
+                "The NBC 1 NUC is the observer's report (FM 3-11.3 Fig. G-3). "
+                        + "Mandatory lines: BRAVO (your position and the "
+                        + "direction to the burst), DELTA (time), GOLF "
+                        + "(delivery), HOTEL (burst type). Optional: FOXTROT "
+                        + "(GZ, actual or estimated), JULIET (flash-to-bang), "
+                        + "KILO (crater), LIMA (cloud width), YANKEE (wind). "
+                        + "ALFA (strike serial number) is assigned by the "
+                        + "CBRN cell.",
+                "• Do not look at the fireball. After the second shock wave "
+                        + "has passed, uncover your eyes and note the time to "
+                        + "the nearest minute.",
+                "• " + NucReports.FLASH_HELP,
+                "• " + NucReports.HOTEL_HELP,
+                "• " + NucReports.WIDTH_HELP + " Cloud measurements are not "
+                        + "taken after H+10 minutes.",
+                "• GZ by polar plot: your position, the azimuth to the stem "
+                        + "or cloud, and flash-to-bang x 0.35 km.",
+                NucReports.PRECEDENCE));
+        l.add(new UxoReference.Section("NUC_RES",
+                "Radiation exposure status (military)",
+                "Radiation exposure status (RES) by total cumulative dose "
+                        + "(JP 3-11, 2008, Fig. D-2):",
+                "• R0: 0-0.05 cGy. R1A: 0.05-0.5. R1B: 0.5-5. R1C: 5-10 "
+                        + "(priority tasks only). R1D: 10-25 (critical tasks "
+                        + "only). R1E: 25-75 (monitor for acute radiation "
+                        + "syndrome). R2: 75-125 (further exposure exceeds "
+                        + "moderate operational risk). R3: over 125 cGy "
+                        + "(all further exposure exceeds emergency risk).",
+                "Severity of radiological threat (Fig. D-3): negligible over "
+                        + "20 cGy total or 0.01 cGy/h; marginal over 75 cGy "
+                        + "or 0.5 cGy/h; critical over 200 cGy or 10 cGy/h; "
+                        + "catastrophic over 450 cGy or 200 cGy/h.",
+                "Recommended operational exposure guidance, cGy per mission "
+                        + "(Fig. D-6), critical / priority / routine: "
+                        + "extremely high risk 125 / 75 / 25; high 75 / 25 "
+                        + "/ 5; moderate 25 / 5 / 0.5; low 5 / 0.5 / 0.5. "
+                        + "The commander may set any OEG.",
+                "1 rad = 1 cGy. These are military risk guides. For "
+                        + "civilians, FEMA's advice is to shelter and avoid "
+                        + "any dose that can be avoided."));
         l.add(new UxoReference.Section("NUC_DOSE",
                 "Radiation dose and effects",
                 "Approximate short-term whole-body dose effects for adults "
@@ -169,6 +259,17 @@ public final class NucReference {
                         + "LLNL-TR-410067, 2009.",
                 "• FEMA, Planning Guidance, 2nd ed., 2010 (zone "
                         + "overpressures used for the air-burst ratios).",
+                "• FM 3-3-1 / FMFM 11-18, Nuclear Contamination Avoidance, "
+                        + "9 Sep 1994 (approved for public release): Table "
+                        + "E-1, Table E-4, simplified fallout prediction.",
+                "• FM 3-11.3 / MCWP 3-37.2A / NTTP 3-11.25 / AFTTP(I) "
+                        + "3-2.56, CBRN Contamination Avoidance, 2 Feb 2006, "
+                        + "Change 1 30 Apr 2009 (distribution unlimited): "
+                        + "Zones I/II, NBC 1/3 NUC formats.",
+                "• JP 3-11, Operations in CBRN Environments, 26 Aug 2008, "
+                        + "Appendix D.",
+                "• LLNL NARAC, Nuclear detonation briefing products "
+                        + "(caveat wording).",
                 "Glasstone & Dolan curves were read from the 1977 figures; "
                         + "Blast is not affiliated with or endorsed by any "
                         + "of these agencies."));

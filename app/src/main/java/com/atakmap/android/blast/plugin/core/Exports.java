@@ -248,8 +248,6 @@ public final class Exports {
             { 0xFFB71C1C, 0x40B71C1C }, { 0xFFFF6D00, 0x30FF6D00 },
             { 0xFFFFD600, 0x1AFFD600 }, { 0xFF00B8D4, 0x00000000 },
             { 0xFF536DFE, 0x00000000 }, { 0xFFE0E0E0, 0x00000000 } };
-    static final int[][] NUC_FO_STYLE = { { 0xFF6A1B9A, 0x456A1B9A },
-            { 0xFF9C27B0, 0x339C27B0 }, { 0xFFCE93D8, 0x22CE93D8 } };
 
     /** KML for a nuclear reference incident: rings, fallout and the point. */
     public static String kmlNuc(String name, double lat, double lon,
@@ -265,10 +263,16 @@ public final class Exports {
         for (int i = 0; i < rings.length; i++)
             style(sb, "ring" + i, grey ? "ff9e9e9e" : kmlColor(NUC_STYLE[i][0]),
                     grey ? "149e9e9e" : kmlColor(NUC_STYLE[i][1]), 3, null);
-        for (int i = 0; i < NUC_FO_STYLE.length; i++)
+        for (int i = 0; i < NucText.FALLOUT_STROKE.length; i++)
             style(sb, "fo" + i, grey ? "ff9e9e9e"
-                    : kmlColor(NUC_FO_STYLE[i][0]), grey ? "149e9e9e"
-                            : kmlColor(NUC_FO_STYLE[i][1]), 2, null);
+                    : kmlColor(NucText.FALLOUT_STROKE[i]), grey ? "149e9e9e"
+                            : kmlColor(NucText.FALLOUT_FILL[i]), 2, null);
+        style(sb, "z1", grey ? "ff9e9e9e" : kmlColor(NucText.ZONE_I_STROKE),
+                grey ? "149e9e9e" : kmlColor(NucText.ZONE_I_FILL), 3, null);
+        style(sb, "z2", grey ? "ff9e9e9e" : kmlColor(NucText.ZONE_II_STROKE),
+                grey ? "149e9e9e" : kmlColor(NucText.ZONE_II_FILL), 3, null);
+        style(sb, "toa", grey ? "ff9e9e9e" : kmlColor(NucText.ARC_STROKE),
+                null, 2, null);
         style(sb, "gz", null, null, 0, grey ? "ff9e9e9e" : "ff1c1cb7");
         sb.append("<Folder>\n");
         tag(sb, "name", nm);
@@ -294,6 +298,34 @@ public final class Exports {
                     .append("</styleUrl>\n<Polygon>\n<outerBoundaryIs>");
             linearRing(sb, closed);
             sb.append("</outerBoundaryIs>\n</Polygon>\n</Placemark>\n");
+        }
+        for (int z = 1; z <= 2; z++) {
+            double[][] zz = NucGeo.zone(r, z, lat, lon);
+            if (zz == null)
+                continue;
+            double[][] closed = java.util.Arrays.copyOf(zz, zz.length + 1);
+            closed[zz.length] = zz[0];
+            sb.append("<Placemark>\n");
+            tag(sb, "name", NucReports.zoneTitle(r, z));
+            tag(sb, "description", z == 1 ? NucReports.ZONE_I
+                    : NucReports.ZONE_II);
+            sb.append("<styleUrl>#z").append(z)
+                    .append("</styleUrl>\n<Polygon>\n<outerBoundaryIs>");
+            linearRing(sb, closed);
+            sb.append("</outerBoundaryIs>\n</Polygon>\n</Placemark>\n");
+        }
+        for (int h = 1; h <= NucText.MAX_ARCS; h++) {
+            double[][] a = NucGeo.arrivalArc(r, h, lat, lon);
+            if (a == null)
+                continue;
+            sb.append("<Placemark>\n");
+            tag(sb, "name", NucReports.arcTitle(r, h));
+            sb.append("<styleUrl>#toa</styleUrl>\n<LineString><coordinates>");
+            for (double[] pt : a)
+                sb.append(coord(pt[1])).append(',').append(coord(pt[0]))
+                        .append(",0 ");
+            sb.setLength(sb.length() - 1);
+            sb.append("</coordinates></LineString>\n</Placemark>\n");
         }
         sb.append("<Placemark>\n");
         tag(sb, "name", nm);
@@ -344,6 +376,20 @@ public final class Exports {
             closed[fo.length] = fo[0];
             track(sb, base + " fallout " + rate + " R/h H+1",
                     NucText.falloutTitle(r, rate), closed);
+        }
+        for (int z = 1; z <= 2; z++) {
+            double[][] zz = NucGeo.zone(r, z, lat, lon);
+            if (zz == null)
+                continue;
+            double[][] closed = java.util.Arrays.copyOf(zz, zz.length + 1);
+            closed[zz.length] = zz[0];
+            track(sb, base + (z == 1 ? " Zone I" : " Zone II"),
+                    NucReports.zoneTitle(r, z), closed);
+        }
+        for (int h = 1; h <= NucText.MAX_ARCS; h++) {
+            double[][] a = NucGeo.arrivalArc(r, h, lat, lon);
+            if (a != null)
+                track(sb, base + " H+" + h, NucReports.arcTitle(r, h), a);
         }
         sb.append("</gpx>\n");
         return sb.toString();

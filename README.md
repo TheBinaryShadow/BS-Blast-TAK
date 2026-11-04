@@ -44,7 +44,17 @@ Prevention and FBI Counter-IED Unit, edition "As of Aug 2025"):
   Glasstone Table 9.93 fallout contours (1,000 / 100 / 10 R/h at H+1).
   The card leads with "Get Inside, Stay Inside, Stay Tuned", says which
   zone and fallout contour you and your team are in, and estimates
-  fallout arrival; never auto-sent
+  fallout arrival; never auto-sent. Wind by compass buttons (or exact
+  bearing/speed); civil fallout drawn as eight graded H+1 bands
+- Nuclear military picture (toggle on the card, civil is the default):
+  simplified fallout prediction of legacy public doctrine (FM 3-3-1 1994,
+  FM 3-11.3 2009): Zone I / Zone II from FM 3-3-1 Table E-4, 40° sector
+  (or the EDM's expanded angle), yield-group cloud radius, arrival arcs,
+  circular case below 8 km/h; enter the effective downwind message line
+  (dddsss, dddsssaaa or zzz) or a surface wind. NBC 3 NUC PAPAB text to
+  copy; NBC 1 NUC observer report builder (BRAVO, DELTA, FOXTROT, GOLF,
+  HOTEL, JULIET, KILO, LIMA, YANKEE, GENTEXT); place ground zero by polar
+  plot (azimuth + flash-to-bang x 0.35 km); RES / OEG reference (JP 3-11)
 - Reference tab (offline): safety rules, minefield and vehicle drills,
   radio rule, marking, recognition, what the rings mean, 5-Cs, IMAS terms,
   sources; nuclear protective actions, ring basis, shelter protection
@@ -163,6 +173,10 @@ DEVELOPER NOTES
    mdz_m="1609" ldz_m="4828" burn_m="..." rad_m="..."/>
   For the known model every radius is recomputed from y_kt and burst
   (core/NucModel, golden-tested against FEMA and Glasstone statements).
+  1.1 test 5 adds fo="MIL" ang z1e wedm (military picture) and o_lat o_lon
+  o_az o_ftb o_cw o_k o_gs o_gd o_gc o_gq (NBC 1 observations), plus
+  shapes <marker>.fo3000 .fo300 .fo30 .fo3 .fo1, .z1 .z2 and .toa1-.toa12
+  (core/NucMil, NucReports).
 
 _________________________________________________________________
 ACKNOWLEDGMENTS
@@ -183,6 +197,10 @@ ACKNOWLEDGMENTS
   8.37, 9.93.
 - Buddemeier & Dillon, Key Response Planning Factors for the Aftermath
   of Nuclear Terrorism, LLNL-TR-410067 (2009).
+- FM 3-3-1 / FMFM 11-18 Nuclear Contamination Avoidance (1994, approved
+  for public release); FM 3-11.3 CBRN Contamination Avoidance (2006,
+  C1 2009, distribution unlimited); JP 3-11 (2008); LLNL NARAC briefing
+  products. Current restricted manuals (TM 3-11.32, ATP-45) not used.
 - Yield presets: FAS / Bulletin of the Atomic Scientists Nuclear Notebook
   (US 2025, Russia 2026, China 2026, UK 2024, India 2026, Pakistan 2023,
   North Korea 2024), SIPRI Yearbook 2023 (France), LANL LA-8819; cited,

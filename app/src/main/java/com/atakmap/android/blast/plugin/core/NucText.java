@@ -60,6 +60,29 @@ public final class NucText {
         }
     }
 
+    /** Fallout band colours (map), one per NucModel.FALLOUT_RATES entry. */
+    public static final int[] FALLOUT_STROKE = { 0xFF4A148C, 0xFF6A1B9A,
+            0xFF7B1FA2, 0xFF8E24AA, 0xFF9C27B0, 0xFFAB47BC, 0xFFBA68C8,
+            0xFFCE93D8 };
+    public static final int[] FALLOUT_FILL = { 0x304A148C, 0x2A6A1B9A,
+            0x267B1FA2, 0x228E24AA, 0x1E9C27B0, 0x1CAB47BC, 0x1ABA68C8,
+            0x18CE93D8 };
+    /** Military Zone I / II and arrival arcs (map). */
+    public static final int ZONE_I_STROKE = 0xFFFF1744,
+            ZONE_I_FILL = 0x33FF1744, ZONE_II_STROKE = 0xFFFFC400,
+            ZONE_II_FILL = 0x22FFC400, ARC_STROKE = 0xFFFFFFFF;
+    /** Most arrival arcs drawn. */
+    public static final int MAX_ARCS = 12;
+
+    /** Military shape suffixes. */
+    public static String zoneSuffix(int zone) {
+        return ".z" + zone;
+    }
+
+    public static String arcSuffix(int hours) {
+        return ".toa" + hours;
+    }
+
     /** Fallout contour suffix: ".fo100". */
     public static String falloutSuffix(int rate) {
         return ".fo" + rate;
@@ -232,6 +255,20 @@ public final class NucText {
 
     /** Fallout line for the card. */
     public static String falloutLine(NucRecord r) {
+        if (r.mil.on) {
+            if (r.burst == NucModel.Burst.AIR)
+                return "Military picture: no fallout prediction is made for "
+                        + "air bursts over land (FM 3-11.3). Shelter anyway "
+                        + "until told otherwise.";
+            NucMil.Prediction p = r.militaryPrediction();
+            if (p == null)
+                return "Military picture: enter the effective downwind (EDM "
+                        + "line) or a wind to draw Zones I and II.";
+            return NucReports.summary(p) + (r.mil.edmWind
+                    || !Double.isNaN(r.mil.edmZoneIKm) ? " From an EDM."
+                            : " From a surface wind estimate (not an EDM): "
+                                    + "rough.");
+        }
         if (r.burst == NucModel.Burst.AIR)
             return "Air burst: little local fallout is expected, but rain or "
                     + "snow can still bring it down, and the area near ground "
@@ -265,6 +302,15 @@ public final class NucText {
             sb.append("Wind from ").append(Math.round(r.windFromDeg))
                     .append("° at ").append(Math.round(r.windMph))
                     .append(" mph. ");
+        if (r.drawsMilitary()) {
+            NucMil.Prediction p = r.militaryPrediction();
+            sb.append("Military prediction (").append(NucMil.SOURCE)
+                    .append("): Zone I ").append(Math.round(p.zoneIKm))
+                    .append(" km, Zone II ").append(Math.round(p.zoneIIKm))
+                    .append(" km").append(p.circular ? " (circular)"
+                            : ", toward " + Math.round(p.eddDeg) + "°")
+                    .append(". ");
+        }
         sb.append(BANNER).append(' ');
         sb.append(REMARKS_END);
         return sb.toString();
@@ -288,9 +334,12 @@ public final class NucText {
         public final int falloutRate;
         /** Hours after detonation fallout may arrive; NaN if not downwind. */
         public final double arrivalH;
+        /** Military zone: 0 none, 1 Zone I, 2 Zone II (military picture on). */
+        public final int milZone;
 
         Where(double distanceM, Ring zone, boolean inBurn, boolean inRad,
-                int falloutRate, double arrivalH) {
+                int falloutRate, double arrivalH, int milZone) {
+            this.milZone = milZone;
             this.distanceM = distanceM;
             this.zone = zone;
             this.inBurn = inBurn;
@@ -313,6 +362,16 @@ public final class NucText {
                 sb.append("Inside the burn ring. ");
             if (inRad)
                 sb.append("Inside the initial-radiation ring. ");
+            if (milZone > 0) {
+                sb.append("Inside ").append(milZone == 1 ? "Zone I" : "Zone II")
+                        .append(" of the military prediction");
+                if (!Double.isNaN(arrivalH))
+                    sb.append("; estimated fallout arrival H+")
+                            .append(arrival(arrivalH))
+                            .append(" (may be as early as H+")
+                            .append(arrival(arrivalH / 2)).append(")");
+                sb.append(". ");
+            }
             if (falloutRate > 0) {
                 sb.append("Inside the idealized ").append(falloutRate)
                         .append(" R/h (H+1) fallout contour");
@@ -353,8 +412,16 @@ public final class NucText {
                 break;
             }
         }
-        int rate = 0;
+        int rate = 0, mz = 0;
         double arrival = Double.NaN;
+        if (r.drawsMilitary()) {
+            NucMil.Prediction p = r.militaryPrediction();
+            double[] xy = p.circular ? new double[] { eastM, northM }
+                    : toAxis(r, eastM, northM);
+            mz = p.zoneAt(xy[0] / 1000.0, xy[1] / 1000.0);
+            if (mz > 0 && !p.circular && xy[0] > 0)
+                arrival = p.arrivalH(xy[0] / 1000.0);
+        }
         if (r.drawsFallout()) {
             double[] xy = toAxis(r, eastM, northM);
             for (int fr : NucModel.FALLOUT_RATES) {
@@ -373,7 +440,7 @@ public final class NucText {
                 arrival = Double.NaN;
         }
         return new Where(d, zone, d < r.radii.burnM, d < r.radii.radM, rate,
-                arrival);
+                arrival, mz);
     }
 
     /** East/north offsets to (downwind, left) axis coordinates. */
@@ -401,7 +468,7 @@ public final class NucText {
             n++;
             if (w.distanceM < r.radii.ldzM)
                 inLdz++;
-            if (w.falloutRate > 0)
+            if (w.falloutRate > 0 || w.milZone > 0)
                 inFallout++;
         }
         return new int[] { inLdz, inFallout, n };

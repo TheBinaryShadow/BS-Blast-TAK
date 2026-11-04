@@ -24,7 +24,9 @@ public final class NucCodec {
 
     static final String[] KNOWN = { "v", "mdl", "ed", "y_kt", "burst", "pre",
             "plbl", "wfrom", "wmph", "by", "t", "st", "cby", "ct", "n",
-            "sdz_m", "mdz_m", "ldz_m", "burn_m", "rad_m" };
+            "sdz_m", "mdz_m", "ldz_m", "burn_m", "rad_m", "fo", "ang", "z1e",
+            "wedm", "o_lat", "o_lon", "o_az", "o_ftb", "o_cw", "o_k", "o_gs",
+            "o_gd", "o_gc", "o_gq" };
 
     static final double MIN_RING_M = 10, MAX_RING_M = 500_000;
 
@@ -60,10 +62,43 @@ public final class NucCodec {
         m.put("ldz_m", Long.toString(Math.round(r.radii.ldzM)));
         m.put("burn_m", Long.toString(Math.round(r.radii.burnM)));
         m.put("rad_m", Long.toString(Math.round(r.radii.radM)));
+        NucRecord.Mil mil = r.mil;
+        if (mil.on)
+            m.put("fo", "MIL");
+        if (!Double.isNaN(mil.angleDeg))
+            m.put("ang", num(mil.angleDeg));
+        if (!Double.isNaN(mil.edmZoneIKm))
+            m.put("z1e", num(mil.edmZoneIKm));
+        if (mil.edmWind && r.hasWind())
+            m.put("wedm", "1");
+        NucRecord.Obs o = r.obs;
+        if (o.hasObserver()) {
+            m.put("o_lat", num6(o.obsLat));
+            m.put("o_lon", num6(o.obsLon));
+        }
+        if (!Double.isNaN(o.azDeg))
+            m.put("o_az", num(o.azDeg));
+        if (!Double.isNaN(o.flashToBangS))
+            m.put("o_ftb", num(o.flashToBangS));
+        if (!Double.isNaN(o.cloudWidthDeg))
+            m.put("o_cw", num(o.cloudWidthDeg));
+        put(m, "o_k", o.crater);
+        if (!o.isEmpty()) {
+            m.put("o_gs", o.golfSo);
+            m.put("o_gd", o.golfDelivery);
+            m.put("o_gc", o.golfContainer);
+            m.put("o_gq", o.gzQualifier);
+        }
         for (Map.Entry<String, String> e : r.extra.entrySet())
             if (!m.containsKey(e.getKey()))
                 m.put(e.getKey(), e.getValue());
         return m;
+    }
+
+    /** Six decimals (coordinates). */
+    static String num6(double d) {
+        return new java.math.BigDecimal(Math.round(d * 1e6)).movePointLeft(6)
+                .stripTrailingZeros().toPlainString();
     }
 
     /** Plain decimal, at most 3 places, no exponent. */
@@ -141,12 +176,26 @@ public final class NucCodec {
                     && e.getValue().length() <= 256)
                 extra.put(e.getKey(), e.getValue());
         }
+        NucRecord.Mil mil = new NucRecord.Mil("MIL".equals(a.get("fo")),
+                BlastCodec.parseDouble(a.get("ang")),
+                BlastCodec.parseDouble(a.get("z1e")), "1".equals(a.get("wedm"))
+                        && !Double.isNaN(wfrom));
+        NucRecord.Obs obs = new NucRecord.Obs(
+                BlastCodec.parseDouble(a.get("o_lat")),
+                BlastCodec.parseDouble(a.get("o_lon")),
+                BlastCodec.parseDouble(a.get("o_az")),
+                BlastCodec.parseDouble(a.get("o_ftb")),
+                BlastCodec.parseDouble(a.get("o_cw")),
+                BlastCodec.text(a.get("o_k")), BlastCodec.text(a.get("o_gs")),
+                BlastCodec.text(a.get("o_gd")), BlastCodec.text(a.get("o_gc")),
+                BlastCodec.text(a.get("o_gq")));
         return new NucRecord(v, mdl, ed, kt, burst, presetId, presetLabel,
                 wfrom, wmph, BlastCodec.text(a.get("by")),
                 Formats.parseIso(a.get("t")),
                 BlastRecord.Status.parse(a.get("st")),
                 BlastCodec.text(a.get("cby")), Formats.parseIso(a.get("ct")),
-                BlastCodec.parseInt(a.get("n"), 0), radii, extra, mismatch);
+                BlastCodec.parseInt(a.get("n"), 0), radii, extra, mismatch,
+                mil, obs);
     }
 
     /** Every radius usable and the damage zones in order. */

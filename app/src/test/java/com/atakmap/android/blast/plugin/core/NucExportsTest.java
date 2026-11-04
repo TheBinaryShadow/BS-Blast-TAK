@@ -5,7 +5,6 @@ import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
-import javax.xml.parsers.DocumentBuilderFactory;
 
 public class NucExportsTest {
 
@@ -17,8 +16,7 @@ public class NucExportsTest {
     }
 
     private static void parses(String xml) throws Exception {
-        DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(
-                new java.io.ByteArrayInputStream(xml.getBytes("UTF-8")));
+        SafeXml.parse(xml, false);
     }
 
     @Test

@@ -5,9 +5,7 @@ import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
-import java.io.ByteArrayInputStream;
 
-import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.w3c.dom.Document;
 
@@ -20,8 +18,7 @@ public class UxoExportsTest {
     }
 
     private static Document parse(String xml) throws Exception {
-        return DocumentBuilderFactory.newInstance().newDocumentBuilder()
-                .parse(new ByteArrayInputStream(xml.getBytes("UTF-8")));
+        return SafeXml.parse(xml, false);
     }
 
     @Test

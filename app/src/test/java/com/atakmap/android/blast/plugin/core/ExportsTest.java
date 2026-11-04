@@ -12,7 +12,6 @@ import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.junit.Test;
 import org.w3c.dom.Document;
@@ -33,10 +32,7 @@ public class ExportsTest {
     }
 
     private static Document parse(String xml) throws Exception {
-        DocumentBuilderFactory f = DocumentBuilderFactory.newInstance();
-        f.setNamespaceAware(true);
-        return f.newDocumentBuilder().parse(
-                new ByteArrayInputStream(xml.getBytes("UTF-8")));
+        return SafeXml.parse(xml, true);
     }
 
     // ------------------------------------------------------------------

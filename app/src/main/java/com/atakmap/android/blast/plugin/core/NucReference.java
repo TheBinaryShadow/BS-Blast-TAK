@@ -242,6 +242,8 @@ public final class NucReference {
         for (NucPresets.Preset p : NucPresets.all())
             if (p.group != NucPresets.Group.YIELD)
                 ys.add("• " + p.label + ": " + p.note + ". " + p.source + ".");
+        ys.add("• Israel: no preset. Nuclear Notebook (2021) gives no yield "
+                + "estimates for Israel's weapons.");
         l.add(new UxoReference.Section("NUC_YIELDS", "Yield presets",
                 ys.toArray(new String[0])));
         l.add(new UxoReference.Section("NUC_SOURCES", "Nuclear sources",

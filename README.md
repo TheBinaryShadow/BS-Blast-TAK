@@ -202,8 +202,9 @@ ACKNOWLEDGMENTS
   C1 2009, distribution unlimited); JP 3-11 (2008); LLNL NARAC briefing
   products. Current restricted manuals (TM 3-11.32, ATP-45) not used.
 - Yield presets: FAS / Bulletin of the Atomic Scientists Nuclear Notebook
-  (US 2026, Russia 2026, China 2026, UK 2024, India 2026, Pakistan 2023,
-  North Korea 2024), SIPRI Yearbook 2023 (France), LANL LA-8819; cited,
+  (US 2026, Russia 2026, China 2026, UK 2024, France 2025, India 2026,
+  Pakistan 2025, North Korea 2024; Israel 2021 gives no yields), LANL
+  LA-8819; cited,
   not copied.
 - 2024 Emergency Response Guidebook (PHMSA, Transport Canada, SCT,
   CIQUIME), pp. 154-155, 158-159, 359, 367-368.

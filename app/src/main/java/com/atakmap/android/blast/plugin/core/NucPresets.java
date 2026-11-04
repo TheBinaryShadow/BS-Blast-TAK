@@ -48,18 +48,19 @@ public final class NucPresets {
     static final String NN_US = "Kristensen et al., Nuclear Notebook: United "
             + "States nuclear weapons, 2026 (Bull. At. Sci. 82:2), Table 1";
     static final String NN_RU = "Kristensen et al., Nuclear Notebook: Russian "
-            + "nuclear weapons, 2026 (Bull. At. Sci.)";
+            + "nuclear weapons, 2026 (Bull. At. Sci.), Table 1";
     static final String NN_CN = "Kristensen et al., Nuclear Notebook: Chinese "
-            + "nuclear weapons, 2025-2026 (Bull. At. Sci.)";
+            + "nuclear weapons, 2026 (Bull. At. Sci.), Table 1";
     static final String NN_UK = "Kristensen et al., Nuclear Notebook: United "
-            + "Kingdom nuclear weapons, 2024 (Bull. At. Sci.)";
-    static final String SIPRI_FR = "SIPRI Yearbook 2023, French nuclear forces";
-    static final String FR_TNA = "French ASMPA/TNA, published estimate (to "
-            + "300 kt)";
-    static final String NN_SA = "Nuclear Notebook: Indian (2026) and Pakistani "
-            + "(2023) nuclear weapons (Bull. At. Sci.)";
-    static final String NN_KP = "Nuclear Notebook: North Korean nuclear "
-            + "weapons, 2024 (Bull. At. Sci.)";
+            + "Kingdom nuclear weapons, 2024 (Bull. At. Sci.), Table 1";
+    static final String NN_FR = "Kristensen et al., Nuclear Notebook: French "
+            + "nuclear weapons, 2025 (Bull. At. Sci.), Table 1";
+    static final String NN_IN = "Kristensen et al., Nuclear Notebook: Indian "
+            + "nuclear weapons, 2026 (Bull. At. Sci.), Table 1";
+    static final String NN_PK = "Kristensen et al., Nuclear Notebook: "
+            + "Pakistani nuclear weapons, 2025 (Bull. At. Sci.), Table 1";
+    static final String NN_KP = "Kristensen et al., Nuclear Notebook: North "
+            + "Korean nuclear weapons, 2024 (Bull. At. Sci.)";
     static final String LANL = "LANL LA-8819 (Hiroshima, Nagasaki)";
     static final String LANL_TRINITY = "LANL 1663 (2022): revised Trinity "
             + "yield 24.8 ±2 kt (was 21 kt)";
@@ -112,6 +113,8 @@ public final class NucPresets {
                 "300 kt", HIST));
         l.add(new Preset("IVY_KING", H, "Ivy King test, 1952", 500,
                 "500 kt, largest unboosted fission test", HIST));
+        l.add(new Preset("CN_JL2", H, "China JL-2 SLBM (replaced by JL-3)",
+                700, "700 kt", NN_CN));
         l.add(new Preset("US_W59", H, "US W59 (Minuteman I, retired)", 1000,
                 "1 Mt", HIST));
         l.add(new Preset("SU_R12", H, "Soviet R-12 / SS-4 (Cuban Missile "
@@ -151,30 +154,39 @@ public final class NucPresets {
                 NN_US));
         l.add(new Preset("US_B83", F, "US B83-1 bomb (few left, retiring)",
                 1200, "up to 1.2 Mt", NN_US));
-        l.add(new Preset("RU_ISKANDER", F, "Russia Iskander-M", 100,
-                "10-100 kt (upper)", NN_RU));
-        l.add(new Preset("RU_YARS", F, "Russia Yars (RS-24) / Bulava", 100,
-                "100 kt", NN_RU));
+        l.add(new Preset("RU_ISKANDER", F, "Russia Iskander-M / 9M729 "
+                + "cruise missile", 100, "10-100 kt (upper)", NN_RU));
+        l.add(new Preset("RU_YARS", F, "Russia Yars ICBM / Bulava, Sineva "
+                + "SLBMs", 100, "100 kt (Yars uncertain)", NN_RU));
         l.add(new Preset("RU_ORESHNIK", F, "Russia Oreshnik", 250, "250 kt",
                 NN_RU));
-        l.add(new Preset("RU_SARMAT", F, "Russia Sarmat (RS-28)", 500,
-                "500 kt (uncertain)", NN_RU));
-        l.add(new Preset("RU_TOPOL_M", F, "Russia Topol-M / RS-20V", 800,
-                "800 kt (RS-20V 500-800)", NN_RU));
+        l.add(new Preset("RU_SARMAT", F, "Russia Sarmat (RS-28, entering "
+                + "service)", 500, "500 kt (uncertain)", NN_RU));
+        l.add(new Preset("RU_VOEVODA", F, "Russia RS-20V Voevoda (SS-18)", 800,
+                "500-800 kt (upper)", NN_RU));
+        l.add(new Preset("RU_TOPOL_M", F, "Russia Topol-M (SS-27 Mod 1)", 800,
+                "800 kt", NN_RU));
         l.add(new Preset("CN_425", F, "China DF-41 / DF-31 / DF-26 / DF-5B / "
                 + "JL-3", 425, "425 kt", NN_CN));
-        l.add(new Preset("CN_JL2", F, "China JL-2", 700, "700 kt", NN_CN));
-        l.add(new Preset("CN_DF5A", F, "China DF-5A", 4500, "4.5 Mt", NN_CN));
-        l.add(new Preset("UK_TRIDENT", F, "UK Trident II", 100, "100 kt",
-                NN_UK));
+        l.add(new Preset("CN_DF5A", F, "China DF-5A", 4500, "4.5 Mt (new "
+                + "DF-5C: \"multi-megaton\", no figure)", NN_CN));
+        l.add(new Preset("UK_TRIDENT", F, "UK Trident II", 100, "100 kt (a "
+                + "low-yield option is not deployed)", NN_UK));
         l.add(new Preset("FR_M51", F, "France M51 (TN 75 / TNO)", 100,
-                "100 kt", SIPRI_FR));
-        l.add(new Preset("FR_TNA", F, "France ASMPA (TNA)", 300,
-                "up to 300 kt", FR_TNA));
-        l.add(new Preset("SA_MISSILE", F, "India / Pakistan missiles", 40,
-                "10-40 kt (upper)", NN_SA));
-        l.add(new Preset("KP", F, "North Korea", 20, "10-20 kt (upper)",
-                NN_KP));
+                "100 kt", NN_FR));
+        l.add(new Preset("FR_TNA", F, "France ASMPA cruise missile (TNA)",
+                300, "under 300 kt (upper; may be nearer 100)", NN_FR));
+        l.add(new Preset("IN_12", F, "India Prithvi-II / K-15 / aircraft "
+                + "bombs", 12, "12 kt", NN_IN));
+        l.add(new Preset("IN_AGNI", F, "India Agni missiles", 40,
+                "10-40 kt (upper)", NN_IN));
+        l.add(new Preset("PK_12", F, "Pakistan Nasr / Babur / Ghaznavi / "
+                + "Shaheen-I / Abdali / aircraft", 12, "5-12 kt (upper)",
+                NN_PK));
+        l.add(new Preset("PK_40", F, "Pakistan Shaheen-II / Ghauri", 40,
+                "10-40 kt (upper)", NN_PK));
+        l.add(new Preset("KP", F, "North Korea (most warheads)", 20,
+                "10-20 kt (upper); a smaller number may be higher", NN_KP));
 
         double[] ys = { 0.1, 0.3, 1, 5, 10, 20, 50, 100, 300, 500, 1000, 5000,
                 10000, 20000, 50000 };
@@ -201,7 +213,7 @@ public final class NucPresets {
 
     /** Countries of the fielded presets, in list order. */
     public static final String[] REGIONS = { "United States", "Russia",
-            "China", "United Kingdom", "France", "India / Pakistan",
+            "China", "United Kingdom", "France", "India", "Pakistan",
             "North Korea" };
 
     /** Region of a fielded preset (from its id), or "" for other groups. */
@@ -219,9 +231,11 @@ public final class NucPresets {
             return REGIONS[3];
         if (id.startsWith("FR_"))
             return REGIONS[4];
-        if (id.startsWith("SA_"))
+        if (id.startsWith("IN_"))
             return REGIONS[5];
-        return REGIONS[6];
+        if (id.startsWith("PK_"))
+            return REGIONS[6];
+        return REGIONS[7];
     }
 
     /** Fielded presets of one region, sorted by yield. */

@@ -78,7 +78,12 @@ bump the edition whenever any number below changes).
   Notebook "United States nuclear weapons, 2026" (Bull. At. Sci. 82:2,
   Table 1). B61-3/-4 moved to history (replaced by B61-12 in Europe);
   B61-7 replaced by B61-13 (~360 kt); B83-1 kept as retiring. Fielded
-  presets are chosen country first.
+  presets are chosen country first. Test 9: every other country checked
+  against its latest Nuclear Notebook (Russia 2026, China 2026, UK 2024,
+  France 2025, India 2026, Pakistan 2025, North Korea 2024); India and
+  Pakistan split into their own lists with 12 kt and 40 kt classes; China
+  JL-2 moved to history (replaced by JL-3); Israel has no preset (no
+  published yields).
 
 ## Results (rounded)
 

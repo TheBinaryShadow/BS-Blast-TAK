@@ -449,6 +449,7 @@ public final class BlastPane {
 
         customRow = horizontal();
         qtyEdit = new EditText(plugin);
+        doneKey(qtyEdit);
         qtyEdit.setInputType(InputType.TYPE_CLASS_NUMBER
                 | InputType.TYPE_NUMBER_FLAG_DECIMAL);
         qtyEdit.setHint("Estimate (TNT equivalent)");
@@ -802,6 +803,7 @@ public final class BlastPane {
         int p = dp(16);
         box.setPadding(p, dp(8), p, 0);
         final EditText dist = new EditText(ctx);
+        doneKey(dist);
         dist.setHint("Distance to the item");
         dist.setInputType(InputType.TYPE_CLASS_NUMBER
                 | InputType.TYPE_NUMBER_FLAG_DECIMAL);
@@ -811,6 +813,7 @@ public final class BlastPane {
         feet.setText("Distance in feet (otherwise metres)");
         box.addView(feet);
         final EditText brg = new EditText(ctx);
+        doneKey(brg);
         brg.setHint("Bearing to the item, degrees (0-359)");
         brg.setInputType(InputType.TYPE_CLASS_NUMBER
                 | InputType.TYPE_NUMBER_FLAG_DECIMAL);
@@ -890,6 +893,7 @@ public final class BlastPane {
         LinearLayout yl = horizontal();
         yl.setGravity(Gravity.CENTER_VERTICAL);
         nucYieldEdit = new EditText(plugin);
+        doneKey(nucYieldEdit);
         nucYieldEdit.setInputType(InputType.TYPE_CLASS_NUMBER
                 | InputType.TYPE_NUMBER_FLAG_DECIMAL);
         nucYieldEdit.setHint("Yield");
@@ -1408,6 +1412,7 @@ public final class BlastPane {
 
     private EditText inlineNumber(String hint, int maxLen) {
         EditText e = new EditText(plugin);
+        doneKey(e);
         e.setInputType(InputType.TYPE_CLASS_NUMBER
                 | InputType.TYPE_NUMBER_FLAG_DECIMAL);
         e.setHint(hint);
@@ -1456,6 +1461,65 @@ public final class BlastPane {
         row.addView(tx, new LinearLayout.LayoutParams(0,
                 ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         return row;
+    }
+
+    /**
+     * The keyboard's action key is always Done (never Next); Done closes
+     * the keyboard and leaves the field.
+     */
+    private void doneKey(final EditText e) {
+        e.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
+        e.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+            @Override
+            public boolean onEditorAction(TextView v, int action,
+                    android.view.KeyEvent ev) {
+                boolean enter = ev != null
+                        && ev.getKeyCode() == android.view.KeyEvent.KEYCODE_ENTER
+                        && ev.getAction() == android.view.KeyEvent.ACTION_DOWN;
+                if (action != android.view.inputmethod.EditorInfo.IME_ACTION_DONE
+                        && !enter)
+                    return false;
+                hideKeyboard(e);
+                return true;
+            }
+        });
+    }
+
+    private void hideKeyboard(View v) {
+        try {
+            android.view.inputmethod.InputMethodManager imm =
+                    (android.view.inputmethod.InputMethodManager) v.getContext()
+                            .getSystemService(Context.INPUT_METHOD_SERVICE);
+            if (imm != null)
+                imm.hideSoftInputFromWindow(v.getWindowToken(), 0);
+        } catch (RuntimeException ex) {
+            Log.w(TAG, "keyboard not hidden", ex);
+        }
+        v.clearFocus();
+    }
+
+    /** "SELECTED INCIDENT" header with Hide ▲ to collapse the card. */
+    private View selectedHeader() {
+        LinearLayout row = horizontal();
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.addView(header("SELECTED INCIDENT"), new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        Button hide = button("Hide ▲", BTN);
+        hide.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                collapseSelected();
+            }
+        });
+        row.addView(hide);
+        return row;
+    }
+
+    private void collapseSelected() {
+        selectedZoneUid = null;
+        listSignature = null;
+        cardSignature = null;
+        refresh();
     }
 
     /** Show a dialog with text fields so the keyboard can reach them. */
@@ -1904,7 +1968,7 @@ public final class BlastPane {
 
     private void buildNucCard(final Marker m, final NucRecord r) {
         zoneCard.setVisibility(View.VISIBLE);
-        zoneCard.addView(header("SELECTED INCIDENT"));
+        zoneCard.addView(selectedHeader());
         LinearLayout card = vertical();
         card.setBackgroundColor(CARD);
         int p = dp(8);
@@ -2112,7 +2176,7 @@ public final class BlastPane {
 
     private void buildUxoCard(final Marker m, final UxoRecord r) {
         zoneCard.setVisibility(View.VISIBLE);
-        zoneCard.addView(header("SELECTED INCIDENT"));
+        zoneCard.addView(selectedHeader());
         LinearLayout card = vertical();
         card.setBackgroundColor(CARD);
         int p = dp(8);
@@ -2561,6 +2625,7 @@ public final class BlastPane {
             String value, boolean number) {
         box.addView(label(ctx, hint));
         EditText e = new EditText(ctx);
+        doneKey(e);
         e.setText(value);
         e.setInputType(number ? InputType.TYPE_CLASS_NUMBER
                 : InputType.TYPE_CLASS_TEXT
@@ -2676,6 +2741,7 @@ public final class BlastPane {
 
     private void promptEmergencyNumber() {
         final EditText input = new EditText(mapView.getContext());
+        doneKey(input);
         input.setSingleLine(true);
         input.setText(emergencyNumber());
         input.setInputType(InputType.TYPE_CLASS_PHONE);
@@ -3053,7 +3119,7 @@ public final class BlastPane {
             return;
         }
         zoneCard.setVisibility(View.VISIBLE);
-        zoneCard.addView(header("SELECTED INCIDENT"));
+        zoneCard.addView(selectedHeader());
         LinearLayout card = vertical();
         card.setBackgroundColor(CARD);
         int p = dp(8);
@@ -3368,7 +3434,8 @@ public final class BlastPane {
                     dp(36));
             sl.setMargins(0, 0, dp(6), 0);
             row.addView(sw, sl);
-            TextView t = text(ATAKUtilities.getDisplayName(m) + where, 14,
+            TextView t = text((sel ? "▾ " : "▸ ")
+                    + ATAKUtilities.getDisplayName(m) + where, 14,
                     isClr ? DIM : TEXT, sel);
             if (r != null) {
                 setIcon(t, threatIcon(r.rowId));
@@ -3413,6 +3480,11 @@ public final class BlastPane {
             View.OnClickListener select = new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
+                    // Tap the selected incident again to collapse its card.
+                    if (m.getUID().equals(selectedZoneUid)) {
+                        collapseSelected();
+                        return;
+                    }
                     selectedZoneUid = m.getUID();
                     listSignature = null;
                     cardSignature = null;
@@ -3667,6 +3739,7 @@ public final class BlastPane {
         if (m == null)
             return;
         final EditText input = new EditText(mapView.getContext());
+        doneKey(input);
         input.setSingleLine(true);
         input.setText(Names.base(BlastStore.nameOf(m)));
         input.setSelectAllOnFocus(true);
